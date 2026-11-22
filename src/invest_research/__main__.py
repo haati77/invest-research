@@ -1,4 +1,4 @@
-"""CLI:  python -m invest_research <init|ingest|compute|prices|update|analyze|show|profile|show-profile|compare|dashboard|status>"""
+"""CLI:  python -m invest_research <init|ingest|compute|prices|update|watch|alerts|analyze|show|profile|show-profile|compare|dashboard|status>"""
 from __future__ import annotations
 
 import argparse
@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .analysis import analyze_watchlist
+from .changes import detect_all_numeric, detect_text_changes
 from .compute import compute_watchlist
 from .config import load_settings, load_watchlist
 from .db import get_engine, init_db, sync_watchlist
@@ -45,6 +46,22 @@ def print_comparison(session: Session, basis: str, sector: str | None) -> None:
             score = "-" if r["score"] != r["score"] else f"{r['score'] * 100:.0f}"
             print(f"{ticker:7}{str(r['period_end']):11}{vals}{score:>7}")
         print()
+
+
+def print_alerts(session: Session, *, only_unseen: bool, min_severity: int, mark_seen: bool) -> None:
+    from .queries import events, mark_events_seen
+    ev = events(session, only_unseen=only_unseen)
+    ev = ev[ev["severity"] >= min_severity]
+    if ev.empty:
+        print("\nKeine Alerts." if only_unseen else "\nKeine Alerts vorhanden.")
+        return
+    label = {3: "HOCH", 2: "MITTEL", 1: "niedrig"}
+    print(f"\n{len(ev)} Alert(s):")
+    for _, r in ev.sort_values(["severity", "created_at"], ascending=[False, False]).iterrows():
+        print(f"  [{label[int(r['severity'])]:7}] {r['ticker']:5} {r['title']}")
+    if mark_seen:
+        mark_events_seen(session, [int(i) for i in ev["id"]])
+        print("Als gelesen markiert.")
 
 
 def print_analysis(session: Session, ticker: str) -> None:
@@ -91,6 +108,16 @@ def main() -> None:
     p_pr.add_argument("--model", default="haiku", help="Modell fuer die Synthese (Standard haiku)")
     p_sp = sub.add_parser("show-profile", help="Neuestes Profil als Markdown ausgeben")
     p_sp.add_argument("ticker")
+    p_w = sub.add_parser("watch", help="Veraenderungen erkennen: Kennzahlensprung, Kursereignis, Risikotext-Vergleich")
+    p_w.add_argument("--ticker", help="nur diesen Ticker")
+    p_w.add_argument("--no-text", action="store_true", help="Textvergleich der Risikofaktoren auslassen (kein Download)")
+    p_w.add_argument("--no-ai", action="store_true", help="Textvergleich ohne KI-Einordnung (kein claude noetig)")
+    p_w.add_argument("--max-calls", type=int, default=6, help="max. KI-Aufrufe je Lauf (Standard 6)")
+    p_w.add_argument("--model", default="haiku")
+    p_al = sub.add_parser("alerts", help="Alerts im Terminal anzeigen")
+    p_al.add_argument("--all", action="store_true", help="auch bereits gelesene")
+    p_al.add_argument("--min-severity", type=int, default=1, choices=[1, 2, 3])
+    p_al.add_argument("--mark-seen", action="store_true", help="angezeigte Alerts als gelesen markieren")
     sub.add_parser("dashboard", help="Dashboard im Browser starten")
     sub.add_parser("compute", help="Abgeleitete Kennzahlen berechnen (Q4, TTM, Quoten)")
     p_cmp = sub.add_parser("compare", help="Peer-Vergleich anzeigen")
@@ -127,6 +154,9 @@ def main() -> None:
             print("Kennzahlen berechnet.")
             for ticker, msg in update_prices(session, YahooProvider()).items():
                 print(f"{ticker:6} {msg}")
+            n = detect_all_numeric(session)
+            print(f"Alerts: {n['metric_change']} Kennzahlensprung, {n['price_move']} Kursereignis neu "
+                  "(Anzeigen: alerts; Risikotext-Vergleich: watch)")
         elif args.cmd == "analyze":
             try:
                 llm = ClaudeCLI(model=args.model)
@@ -160,6 +190,23 @@ def main() -> None:
             if not versions:
                 raise SystemExit(f"Kein Profil fuer {args.ticker.upper()}. Erst: python -m invest_research profile --ticker {args.ticker.upper()}")
             print(render_markdown(versions[0]["content"], versions[0]["created_at"]))
+        elif args.cmd == "watch":
+            n = detect_all_numeric(session, args.ticker)
+            print(f"Kennzahlensprung: {n['metric_change']} neu | Kursereignis: {n['price_move']} neu")
+            if not args.no_text:
+                llm = None
+                if not args.no_ai:
+                    try:
+                        llm = ClaudeCLI(model=args.model)
+                    except LLMError as exc:
+                        raise SystemExit(f"{exc}\n(Oder mit --no-ai ohne KI-Einordnung.)")
+                for r in detect_text_changes(session, llm, EdgarClient(settings.sec_user_agent),
+                                             only_ticker=args.ticker, max_calls=args.max_calls):
+                    extra = f" ({r.n_added} neue/geaenderte, {r.n_removed} entfallene Absaetze)" if r.n_added or r.n_removed else ""
+                    print(f"Risikotext {r.ticker:6} {r.status}{extra}")
+            print_alerts(session, only_unseen=True, min_severity=1, mark_seen=False)
+        elif args.cmd == "alerts":
+            print_alerts(session, only_unseen=not args.all, min_severity=args.min_severity, mark_seen=args.mark_seen)
         elif args.cmd == "dashboard":
             import subprocess
             import sys
@@ -179,4 +226,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BrokenPipeError:  # z. B. Ausgabe an 'head' / 'Select-Object -First' abgeschnitten
+        pass

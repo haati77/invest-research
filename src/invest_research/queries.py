@@ -99,7 +99,7 @@ def mark_events_seen(session: Session, ids: list[int]) -> None:
     session.commit()
 
 
-SECTION_ORDER = {"business": 0, "risks": 1, "mdna": 2}
+SECTION_ORDER = {"business": 0, "risks": 1, "risks_diff": 2, "mdna": 3}
 
 
 def latest_analyses(session: Session, ticker: str) -> list[dict]:

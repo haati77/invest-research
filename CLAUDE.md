@@ -22,7 +22,7 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 4. Erstes Dashboard (Streamlit) -- erledigt
 5. KI-Berichtsanalyse -- erledigt
 6. Unternehmensprofile -- erledigt
-7. Veraenderungserkennung + Alerts
+7. Veraenderungserkennung + Alerts -- erledigt
 8. Politur (Limits, Logging, Fragen an die Daten)
 
 ## Datenstand (Schritt 2)
@@ -61,7 +61,7 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 - SICHERHEIT: Berichtstext ist nicht vertrauenswuerdig (Prompt Injection). `claude -p` laeuft immer mit `--tools ""`, leerem Temp-Verzeichnis, ohne Session-Speicherung; Prompt per stdin. Nie Tools aktivieren.
 - Qualitaetssicherung: jedes Zitat wird woertlich (formatierungstolerant) gegen den Text geprueft, den das Modell sah; nur verifizierte Aussagen erscheinen im Dashboard. GRENZE: Das Zitat belegt nicht automatisch jedes Detail der Aussage (Prompt v2 verlangt das, ist aber nicht maschinell pruefbar), und die Zusammenfassung ist nie zitatgeprueft.
 - Kosten/Limits: Standardmodell haiku (guter Kompromiss: ~0,005 USD Listenpreis je Abschnitt, ~15-20 s). `--max-calls` (Standard 12) begrenzt jeden Lauf, Fortschritt ist gespeichert, Wiederholung macht weiter. Ergebnisse je (Filing, Abschnitt, PROMPT_VERSION) einmal; bei Prompt-Aenderung PROMPT_VERSION erhoehen.
-- Nur das neueste 10-K und neueste 10-Q je Firma werden analysiert (Schritt 7 vergleicht spaeter mit frueheren Berichten).
+- Nur das neueste 10-K und neueste 10-Q je Firma werden analysiert; der Vergleich mit dem Vorjahres-10-K (Risikofaktoren) steckt in Schritt 7.
 - Unter Windows: `claude` muss im PATH und angemeldet sein. Falls `.cmd`-Wrapper Probleme mit leerem `--tools ""` machen, in `ClaudeCLI.command` anpassen (nicht auf Linux getestet).
 
 ## Unternehmensprofile (Schritt 6)
@@ -72,3 +72,13 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 - Neue Version nur bei geaenderten Eingaben (Hash ueber Kennzahlen FY/TTM und Analysen; Kurs/Bewertung zaehlen nicht) oder `--force`. Ein Profil ohne KI und eines mit KI sind verschiedene Versionen. Ohne Berichtsanalyse wird nie das LLM aufgerufen.
 - Migration: `db.init_db` ergaenzt fehlende nullable Spalten in bestehenden Datenbanken (`_add_missing_columns`). Neue Modellspalten muessen nullable sein oder einen server_default haben.
 - TODO Schritt 8: Oberflaeche nutzt Ersatzschreibungen (ae/oe/ue) statt Umlaute; auf echte Umlaute umstellen (Tests nutzen die Seitennamen als Schluessel).
+
+## Veraenderungserkennung und Alerts (Schritt 7)
+- CLI: `watch [--ticker T] [--no-text] [--no-ai] [--max-calls 6]`, `alerts [--all] [--min-severity N] [--mark-seen]`. `update` erzeugt zusaetzlich die Zahlen-Alerts. Dashboard: Seite "Alerts" (Filter, nach Wichtigkeit sortiert, gelesen markieren); Profil-Seite zeigt Aenderungen gegenueber der Vorversion (`profiles.diff_profiles`).
+- `changes.py`: alle Schwellen an einer Stelle (`METRIC_RULES`, `PRICE_MOVE_*`, `STALE_DAYS`, `TEXT_MIN_ADDED_CHARS`). Ereignisarten: `new_filing` (aus ingest), `metric_change`, `price_move`, `text_change`. Jedes Event hat `dedupe_key` -> Wiederholung meldet nichts doppelt.
+- Kennzahlensprung: TTM gegen TTM ein Jahr frueher. Verschlechterungen behalten die volle Wichtigkeit, Verbesserungen werden um eine Stufe herabgestuft (sonst 22 von 37 Meldungen "hoch"); Vorzeichenwechsel (ins Negative) immer hoch. Titel enthalten die Richtung ("besser"/"schlechter"). Meldungen zu Stichtagen aelter als 90 Tage werden automatisch als gelesen angelegt (Erstlauf-Flut).
+- Kursereignis: Tagesbewegung >= 7 % (mittel) bzw. >= 12 % (hoch) in den letzten 5 Handelstagen; Kursgewinne eine Stufe niedriger. Grund wird nicht ermittelt.
+- Textvergleich Risikofaktoren (`textdiff.py` + `detect_text_changes`): neuestes 10-K gegen das davor. Deterministisch: Absatz gilt als neu/geaendert, wenn < 50 % seiner 5-Wort-Folgen im alten Abschnitt vorkommen (robust gegen Umstellungen). Mit LLM werden nur die neuen Absaetze zusammengefasst; Zitate werden gegen diesen Text geprueft. Ergebnis als `analyses`-Zeile (`section_key='risks_diff'`, `model='none'` ohne KI -> spaeter mit KI aufwertbar, Event wird aktualisiert statt doppelt angelegt). Aenderungen < 800 Zeichen erzeugen kein Event.
+- Nicht abgedeckt: Textvergleich fuer MD&A/Geschaeftsbericht und 10-Q (zu viel Rauschen durch wechselnde Zahlen), Benachrichtigung per E-Mail/Telegram, Alerts auf Basis von Kursniveaus (52W-Hoch/Tief).
+- Windows: `scripts/daily_run.bat` fuer die Aufgabenplanung (README); nicht auf Windows getestet.
+- Fund beim Testen: pandas liefert fehlende Textfelder als NaN (float) -> nie `x or ""` bei DataFrame-Zellen, sondern `isinstance(x, str)`.

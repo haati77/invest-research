@@ -10,7 +10,7 @@ from invest_research import queries
 from invest_research.config import load_settings
 from invest_research.db import get_engine, init_db
 from invest_research.engine import RATIOS
-from invest_research.profiles import CORE_RATIOS, ABSOLUTE, render_markdown
+from invest_research.profiles import CORE_RATIOS, ABSOLUTE, diff_profiles, render_markdown
 from invest_research.peers import add_percentiles, overall_score, snapshot
 
 st.set_page_config(page_title="Investment-Forschung", page_icon="📈", layout="wide")
@@ -252,7 +252,8 @@ def page_company(session: Session) -> None:
     render_analysis(session, ticker)
 
 
-SECTION_TITLES = {"business": "Geschaeftsmodell", "risks": "Risiken", "mdna": "Management-Analyse (MD&A)"}
+SECTION_TITLES = {"business": "Geschaeftsmodell", "risks": "Risiken", "risks_diff": "Neue Risiken ggue. Vorjahr",
+                  "mdna": "Management-Analyse (MD&A)"}
 KIND_LABELS = {"business": "Geschaeft", "segment": "Segment", "strategy": "Strategie", "risk": "Risiko",
                "driver": "Treiber", "outlook": "Ausblick", "other": "Sonstiges"}
 
@@ -294,26 +295,46 @@ def render_analysis(session: Session, ticker: str) -> None:
 
 
 # ---------------------------------------------------------------- Alerts
+KIND_NAMES = {"new_filing": "Neues Filing", "metric_change": "Kennzahlensprung",
+              "price_move": "Kursereignis", "text_change": "Textaenderung"}
+SEVERITY_NAMES = {3: "HOCH", 2: "MITTEL", 1: "niedrig"}
+
+
 def page_alerts(session: Session) -> None:
     st.header("Alerts")
-    ev = queries.events(session)
+    ev = queries.events(session, limit=300)
     if ev.empty:
-        st.info("Noch keine Alerts. Sie entstehen, wenn ein spaeterer 'update'-Lauf neue Filings findet.")
+        st.info("Noch keine Alerts. Sie entstehen bei neuen Filings, Kennzahlenspruengen, Kursereignissen und "
+                "Aenderungen der Risikofaktoren: `python -m invest_research watch`")
         return
+    c1, c2, c3 = st.columns([2, 2, 1])
+    tickers = c1.multiselect("Unternehmen", sorted(ev["ticker"].unique()), default=[], placeholder="Alle")
+    kinds = c2.multiselect("Art", list(KIND_NAMES), default=list(KIND_NAMES), format_func=lambda k: KIND_NAMES[k])
+    min_sev = c3.selectbox("Ab Wichtigkeit", [1, 2, 3], format_func=lambda n: SEVERITY_NAMES[n])
     only_new = st.toggle("Nur ungelesene", value=True)
-    view = ev[~ev["seen"]] if only_new else ev
+    view = ev[ev["kind"].isin(kinds) & (ev["severity"] >= min_sev)]
+    if tickers:
+        view = view[view["ticker"].isin(tickers)]
+    if only_new:
+        view = view[~view["seen"]]
     if view.empty:
-        st.success("Keine ungelesenen Alerts.")
+        st.success("Keine passenden Alerts.")
         return
-    if st.button("Alle als gelesen markieren"):
+    left, right = st.columns([3, 1])
+    left.caption(f"{len(view)} Alert(s). Kennzahlen- und Kursmeldungen kommen aus dem Code; "
+                 "Textaenderungen enthalten eine KI-Einordnung mit geprueften Zitaten.")
+    if right.button("Angezeigte als gelesen markieren"):
         queries.mark_events_seen(session, [int(i) for i in view["id"]])
         st.rerun()
-    sev = {3: "hoch", 2: "mittel", 1: "niedrig"}
-    st.dataframe(pd.DataFrame({"Zeit": view["created_at"], "Ticker": view["ticker"],
-                               "Wichtigkeit": view["severity"].map(sev), "Meldung": view["title"],
-                               "Link": view["detail"]}),
-                 width="stretch", hide_index=True,
-                 column_config={"Link": st.column_config.LinkColumn("Link", display_text="oeffnen")})
+    for _, r in view.sort_values(["severity", "created_at"], ascending=[False, False]).iterrows():
+        label = f"[{SEVERITY_NAMES[int(r['severity'])]}] {r['ticker']}  {r['title']}"
+        with st.expander(label + ("" if not r["seen"] else "  (gelesen)")):
+            st.caption(f"{KIND_NAMES.get(r['kind'], r['kind'])} | erkannt {r['created_at']:%Y-%m-%d %H:%M}")
+            detail = r["detail"] if isinstance(r["detail"], str) else ""  # fehlender Text kommt als NaN
+            if detail.startswith("http"):
+                st.markdown(f"[Originaldokument]({detail})")
+            elif detail:
+                st.markdown(detail)
 
 
 # ---------------------------------------------------------------- Profil
@@ -385,6 +406,22 @@ def page_profile(session: Session) -> None:
             for it in sorted(sec["items"], key=lambda i: -i["importance"])[:6]:
                 st.markdown(f"**{it['title']}**  \n{it['statement']}")
                 st.caption(f"Originalzitat: \u201e{it['quote']}\u201c")
+    if pick + 1 < len(versions):
+        prev = versions[pick + 1]
+        d = diff_profiles(prev["content"], c)
+        with st.expander(f"Aenderungen gegenueber der Vorversion vom {prev['created_at']:%Y-%m-%d %H:%M}"):
+            if d["facts"]:
+                st.dataframe(pd.DataFrame([{"Kennzahl": f["label"], "Vorher": f["old_text"], "Jetzt": f["new_text"]}
+                                           for f in d["facts"]]), hide_index=True, width="stretch")
+            else:
+                st.caption("Keine Aenderung bei den Kennzahlen.")
+            if d["added"] or d["removed"]:
+                st.caption("KI-Formulierungen schwanken von Lauf zu Lauf: die Listen zeigen geaenderte "
+                           "Formulierungen, nicht zwingend inhaltliche Aenderungen.")
+            for t in d["added"]:
+                st.markdown(f"+ {t}")
+            for t in d["removed"]:
+                st.markdown(f"- ~~{t}~~")
     if c.get("gaps"):
         with st.expander(f"Datenluecken ({len(c['gaps'])})"):
             for g in c["gaps"]:

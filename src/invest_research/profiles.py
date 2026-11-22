@@ -315,6 +315,41 @@ def _build_one(session: Session, llm: LLMClient | None, company: Company, fy: pd
     return ProfileResult(company.ticker, "neu", ai=use_ai, dropped=(synthesis or {}).get("dropped", 0))
 
 
+# ------------------------------------------------------------------ Vergleich zweier Versionen
+def diff_profiles(old: dict, new: dict) -> dict:
+    """Was hat sich zwischen zwei Profil-Versionen geaendert? Rein deterministisch.
+
+    facts:   Kennzahlen mit Wertaenderung (alt/neu aus dem Beleg-Blatt, Delta nur bei echten Zahlen)
+    added/removed: KI-Aussagen (Staerken/Schwaechen/Beobachten), die neu sind bzw. entfallen sind.
+             KI-Formulierungen schwanken von Lauf zu Lauf; die Liste zeigt daher Formulierungen,
+             nicht automatisch inhaltliche Aenderungen.
+    """
+    def values(c: dict) -> dict[str, float]:
+        out = {}
+        for basis in ("fy", "ttm"):
+            for k, v in ((c["facts"].get(basis) or {}).get("values") or {}).items():
+                out[f"{k}:{basis.upper()}"] = v
+        return out
+
+    ov, nv = values(old), values(new)
+    facts = []
+    for key in sorted(set(ov) | set(nv)):
+        a, b = ov.get(key), nv.get(key)
+        if a != b:
+            name, basis = key.split(":")
+            label = RATIOS[name][0] if name in RATIOS else ABSOLUTE.get(name, name)
+            facts.append({"key": key, "label": f"{label} ({BASIS_LABEL[basis]})", "old": a, "new": b,
+                          "old_text": old["sheet"].get(f"F:{name}:{basis}", "-").rsplit(": ", 1)[-1],
+                          "new_text": new["sheet"].get(f"F:{name}:{basis}", "-").rsplit(": ", 1)[-1]})
+
+    def statements(c: dict) -> set[str]:
+        syn = c.get("synthesis") or {}
+        return {p["statement"] for k in ("strengths", "weaknesses", "watch") for p in syn.get(k, [])}
+
+    o_s, n_s = statements(old), statements(new)
+    return {"facts": facts, "added": sorted(n_s - o_s), "removed": sorted(o_s - n_s)}
+
+
 # ------------------------------------------------------------------ Darstellung
 def render_markdown(content: dict, created_at: datetime | None = None) -> str:
     """Profil als Markdown (CLI-Ausgabe und Download). Reine Darstellung, keine neuen Aussagen."""

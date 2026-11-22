@@ -93,6 +93,11 @@ TASKS = {
                 "business), customers, competitive position, strategy (kind strategy). Set tone to null.",
     "risks": "Task: Identify the most important risk factors specific to this company (not boilerplate "
              "shared by every company). All items have kind \"risk\"; rank by importance. Set tone to null.",
+    "risks_diff": "Task: The text consists only of paragraphs that are NEW or substantially reworded in this "
+                  "year's Risk Factors compared with last year's filing. Identify the substantively new or "
+                  "materially changed risks; ignore pure rewording and boilerplate. All items have kind "
+                  "\"risk\"; importance 3 only for risks that look material for this company. The summary says "
+                  "what changed overall. Set tone to null.",
     "mdna": "Task: Summarise performance and its drivers. Items: drivers of results (kind driver), "
             "outlook or guidance statements (kind outlook), notable changes versus the prior period "
             "(kind other). Also set tone (management's overall tone) with tone_quote.",

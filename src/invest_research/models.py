@@ -144,5 +144,8 @@ class Event(Base):
     title: Mapped[str] = mapped_column(String(200))
     detail: Mapped[str | None] = mapped_column(Text)
     seen: Mapped[bool] = mapped_column(default=False)
+    # Eindeutiger Schluessel je Ereignis (z. B. 'metric:net_margin:TTM:2026-09-30'): wiederholte Laeufe
+    # erzeugen dasselbe Ereignis nicht doppelt. None bei aelteren Ereignissen.
+    dedupe_key: Mapped[str | None] = mapped_column(String(160), index=True)
 
     company: Mapped[Company] = relationship(back_populates="events")
