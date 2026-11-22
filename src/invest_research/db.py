@@ -1,7 +1,7 @@
 """Datenbank-Setup und Watchlist-Synchronisierung."""
 from __future__ import annotations
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,29 @@ def get_engine(settings: Settings) -> Engine:
 
 def init_db(engine: Engine) -> None:
     Base.metadata.create_all(engine)
+    _add_missing_columns(engine)
+
+
+def _add_missing_columns(engine: Engine) -> None:
+    """Einfache Migration: ergaenzt in bestehenden Datenbanken neue (nullable) Spalten.
+
+    create_all legt nur fehlende Tabellen an, nie fehlende Spalten. Nicht-nullable Spalten
+    ohne Default koennen so nicht nachgeruestet werden und gelten als Programmierfehler.
+    """
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not insp.has_table(table.name):
+                continue
+            have = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in have:
+                    continue
+                if not col.nullable and col.server_default is None:
+                    raise RuntimeError(f"Spalte {table.name}.{col.name} fehlt und ist nicht nullable: "
+                                       "Datenbank neu aufbauen oder Migration schreiben.")
+                conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" '
+                                  f"{col.type.compile(engine.dialect)}"))
 
 
 def sync_watchlist(session: Session, entries: list[WatchlistEntry]) -> None:

@@ -1,4 +1,4 @@
-"""CLI:  python -m invest_research <init|ingest|compute|prices|update|analyze|show|compare|dashboard|status>"""
+"""CLI:  python -m invest_research <init|ingest|compute|prices|update|analyze|show|profile|show-profile|compare|dashboard|status>"""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +15,7 @@ from .db import get_engine, init_db, sync_watchlist
 from .edgar import EdgarClient
 from .ingest import ingest_watchlist
 from .llm import ClaudeCLI, LLMError
+from .profiles import build_profiles, render_markdown
 from .prices import YahooProvider, update_prices
 from .engine import RATIOS
 from .models import Company, Filing, Metric
@@ -83,6 +84,13 @@ def main() -> None:
     p_an.add_argument("--force", action="store_true", help="vorhandene Analysen neu erstellen")
     p_show = sub.add_parser("show", help="KI-Analyse eines Unternehmens anzeigen")
     p_show.add_argument("ticker")
+    p_pr = sub.add_parser("profile", help="Unternehmensprofile erstellen (neue Version nur bei geaenderten Eingaben)")
+    p_pr.add_argument("--ticker", help="nur diesen Ticker")
+    p_pr.add_argument("--force", action="store_true", help="auch bei unveraenderten Eingaben neue Version")
+    p_pr.add_argument("--no-ai", action="store_true", help="ohne KI-Synthese (kein claude noetig)")
+    p_pr.add_argument("--model", default="haiku", help="Modell fuer die Synthese (Standard haiku)")
+    p_sp = sub.add_parser("show-profile", help="Neuestes Profil als Markdown ausgeben")
+    p_sp.add_argument("ticker")
     sub.add_parser("dashboard", help="Dashboard im Browser starten")
     sub.add_parser("compute", help="Abgeleitete Kennzahlen berechnen (Q4, TTM, Quoten)")
     p_cmp = sub.add_parser("compare", help="Peer-Vergleich anzeigen")
@@ -133,6 +141,25 @@ def main() -> None:
                 print(f"\n{pending} Abschnitte noch offen: 'analyze' erneut ausfuehren (Fortschritt ist gespeichert).")
         elif args.cmd == "show":
             print_analysis(session, args.ticker)
+        elif args.cmd == "profile":
+            llm = None
+            if not args.no_ai:
+                try:
+                    llm = ClaudeCLI(model=args.model)
+                except LLMError as exc:
+                    raise SystemExit(f"{exc}\n(Oder mit --no-ai ohne KI-Synthese.)")
+            for r in build_profiles(session, llm, only_ticker=args.ticker, force=args.force):
+                extra = ""
+                if r.status == "neu":
+                    extra = " (mit KI-Synthese" + (f", {r.dropped} Aussagen mangels Belegen verworfen" if r.dropped else "") + ")" \
+                        if r.ai else " (ohne KI-Synthese)"
+                print(f"{r.ticker:6} {r.status}{extra}")
+        elif args.cmd == "show-profile":
+            from .queries import profile_versions
+            versions = profile_versions(session, args.ticker)
+            if not versions:
+                raise SystemExit(f"Kein Profil fuer {args.ticker.upper()}. Erst: python -m invest_research profile --ticker {args.ticker.upper()}")
+            print(render_markdown(versions[0]["content"], versions[0]["created_at"]))
         elif args.cmd == "dashboard":
             import subprocess
             import sys

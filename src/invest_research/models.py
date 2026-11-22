@@ -124,6 +124,9 @@ class Profile(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     content: Mapped[dict] = mapped_column(JSON)  # strukturiertes Profil inkl. Zitate
     based_on_filing_id: Mapped[int | None] = mapped_column(ForeignKey("filings.id"))
+    input_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # Eingaben (Kennzahlen, Analysen)
+    model: Mapped[str | None] = mapped_column(String(60))  # None = Profil ohne KI-Synthese
+    prompt_version: Mapped[str | None] = mapped_column(String(20))
 
     company: Mapped[Company] = relationship(back_populates="profiles")
 

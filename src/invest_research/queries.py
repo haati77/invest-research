@@ -5,7 +5,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Analysis, Company, Event, Filing, Metric, Price
+from .models import Analysis, Company, Event, Filing, Metric, Price, Profile
 from .valuation import market_cap, p_fcf_ratio, pe_ratio, price_change, ps_ratio
 
 
@@ -118,3 +118,11 @@ def latest_analyses(session: Session, ticker: str) -> list[dict]:
                     "model": a.model, "created_at": a.created_at, "content": a.content})
     out.sort(key=lambda r: (-r["filed_at"].toordinal(), SECTION_ORDER.get(r["section"], 9)))
     return out
+
+
+def profile_versions(session: Session, ticker: str) -> list[dict]:
+    """Alle Profil-Versionen eines Unternehmens, neueste zuerst."""
+    q = (select(Profile).join(Company, Company.id == Profile.company_id)
+         .where(Company.ticker == ticker.upper()).order_by(Profile.created_at.desc(), Profile.id.desc()))
+    return [{"id": p.id, "created_at": p.created_at, "model": p.model, "content": p.content}
+            for p in session.scalars(q)]

@@ -21,7 +21,7 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 3. Kennzahlen-Engine + Peer-Vergleich (ohne KI) -- erledigt
 4. Erstes Dashboard (Streamlit) -- erledigt
 5. KI-Berichtsanalyse -- erledigt
-6. Unternehmensprofile
+6. Unternehmensprofile -- erledigt
 7. Veraenderungserkennung + Alerts
 8. Politur (Limits, Logging, Fragen an die Daten)
 
@@ -63,3 +63,12 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 - Kosten/Limits: Standardmodell haiku (guter Kompromiss: ~0,005 USD Listenpreis je Abschnitt, ~15-20 s). `--max-calls` (Standard 12) begrenzt jeden Lauf, Fortschritt ist gespeichert, Wiederholung macht weiter. Ergebnisse je (Filing, Abschnitt, PROMPT_VERSION) einmal; bei Prompt-Aenderung PROMPT_VERSION erhoehen.
 - Nur das neueste 10-K und neueste 10-Q je Firma werden analysiert (Schritt 7 vergleicht spaeter mit frueheren Berichten).
 - Unter Windows: `claude` muss im PATH und angemeldet sein. Falls `.cmd`-Wrapper Probleme mit leerem `--tools ""` machen, in `ClaudeCLI.command` anpassen (nicht auf Linux getestet).
+
+## Unternehmensprofile (Schritt 6)
+- CLI: `profile [--ticker T] [--force] [--no-ai] [--model haiku]`, `show-profile TICKER` (Markdown). Dashboard: Seite "Profil" (Versionsauswahl, Belege, Markdown-Download).
+- `profiles.py`: Profil = Fakten (Code: Kennzahlen FY/TTM, Bewertung, Branchen-Score) + verifizierte Aussagen aus Schritt 5 + optionale KI-Synthese (Staerken/Schwaechen/Beobachten/offene Fragen) + ehrliche Datenluecken. Tabelle `profiles` (versioniert, `input_hash`, `model`).
+- Beleg-Pflicht: Die KI bekommt ein Beleg-Blatt (`F:`=Kennzahl, `V:`=Bewertung, `P:`=Peer, `A:`=verifizierte Berichtsaussage) mit vom Code formatierten Zahlen. Jede Aussage muss Beleg-IDs nennen; unbekannte IDs oder Zahlen, die nicht in den zitierten Belegen stehen (kleine Ganzzahlen <= 10 frei), fuehren zum Verwerfen. Verworfenes wird mit Grund in `synthesis.dropped_points` gespeichert und im Dashboard gezeigt.
+- GRENZE: Zahlen und Belege werden geprueft, Kausalaussagen ("getrieben von ...") und Wertungen ("hoch") nicht. Offene Fragen sind Fragen, keine Fakten.
+- Neue Version nur bei geaenderten Eingaben (Hash ueber Kennzahlen FY/TTM und Analysen; Kurs/Bewertung zaehlen nicht) oder `--force`. Ein Profil ohne KI und eines mit KI sind verschiedene Versionen. Ohne Berichtsanalyse wird nie das LLM aufgerufen.
+- Migration: `db.init_db` ergaenzt fehlende nullable Spalten in bestehenden Datenbanken (`_add_missing_columns`). Neue Modellspalten muessen nullable sein oder einen server_default haben.
+- TODO Schritt 8: Oberflaeche nutzt Ersatzschreibungen (ae/oe/ue) statt Umlaute; auf echte Umlaute umstellen (Tests nutzen die Seitennamen als Schluessel).

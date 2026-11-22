@@ -10,6 +10,7 @@ from invest_research import queries
 from invest_research.config import load_settings
 from invest_research.db import get_engine, init_db
 from invest_research.engine import RATIOS
+from invest_research.profiles import CORE_RATIOS, ABSOLUTE, render_markdown
 from invest_research.peers import add_percentiles, overall_score, snapshot
 
 st.set_page_config(page_title="Investment-Forschung", page_icon="📈", layout="wide")
@@ -315,7 +316,86 @@ def page_alerts(session: Session) -> None:
                  column_config={"Link": st.column_config.LinkColumn("Link", display_text="oeffnen")})
 
 
-PAGES = {"Uebersicht": page_overview, "Peer-Vergleich": page_peers,
+# ---------------------------------------------------------------- Profil
+def page_profile(session: Session) -> None:
+    st.header("Unternehmensprofil")
+    companies = queries.watchlist(session)
+    if not companies:
+        return empty_state()
+    by_ticker = {c.ticker: c for c in companies}
+    ticker = st.selectbox("Unternehmen", list(by_ticker), key="prof_ticker",
+                          format_func=lambda t: f"{t}  -  {by_ticker[t].name or ''}")
+    versions = queries.profile_versions(session, ticker)
+    if not versions:
+        st.info(f"Noch kein Profil. Im Terminal: `python -m invest_research profile --ticker {ticker}`")
+        return
+    labels = [f"{v['created_at']:%Y-%m-%d %H:%M}" + (" (mit KI-Synthese)" if v["model"] else " (ohne KI-Synthese)")
+              for v in versions]
+    pick = st.selectbox("Version", range(len(versions)), format_func=lambda i: labels[i]) if len(versions) > 1 else 0
+    c = versions[pick]["content"]
+    sheet, syn = c["sheet"], c.get("synthesis")
+
+    st.subheader(f"{c.get('name') or ticker} ({ticker})")
+    st.caption(f"Branche: {c.get('sector') or '-'}  |  Stand: {c['generated_on']}")
+    if syn:
+        st.markdown(f"**{syn['headline']}**")
+        st.caption("KI-Synthese: jede Aussage nennt ihre Belege; Zahlen wurden gegen die Belege geprueft. "
+                   + (f"{syn['dropped']} Aussage(n) mangels Belegen verworfen. " if syn.get("dropped") else "")
+                   + "Das ist keine Anlageberatung.")
+    else:
+        st.info("Dieses Profil enthaelt keine KI-Synthese (nur Kennzahlen und geprueften Berichtsaussagen).")
+
+    rows = []
+    for name in CORE_RATIOS + list(ABSOLUTE):
+        label = RATIOS[name][0] if name in RATIOS else ABSOLUTE[name]
+        cells = [sheet.get(f"F:{name}:{b}", "").rsplit(": ", 1)[-1] or "-" for b in ("FY", "TTM")]
+        rows.append({"Kennzahl": label, "Letztes Geschaeftsjahr": cells[0], "Letzte 12 Monate": cells[1]})
+    for key, label in (("V:pe", "KGV"), ("V:ps", "KUV"), ("V:p_fcf", "Kurs/FCF"), ("P:score", "Branchen-Score")):
+        if key in sheet:
+            rows.append({"Kennzahl": label, "Letztes Geschaeftsjahr": sheet[key].rsplit(": ", 1)[-1],
+                         "Letzte 12 Monate": ""})
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+    if syn:
+        cols = st.columns(3)
+        for col, key, title in zip(cols, ("strengths", "weaknesses", "watch"), ("Staerken", "Schwaechen", "Beobachten")):
+            with col:
+                st.markdown(f"#### {title}")
+                for p in syn.get(key, []):
+                    st.markdown(f"- {p['statement']}")
+                    with st.expander("Belege"):
+                        for e in p["evidence"]:
+                            st.caption(f"`{e}`  {sheet.get(e, '')}")
+        if syn.get("open_questions"):
+            st.markdown("#### Offene Fragen")
+            for q in syn["open_questions"]:
+                st.markdown(f"- {q}")
+        if syn.get("dropped_points"):
+            with st.expander(f"Verworfene KI-Aussagen ({len(syn['dropped_points'])})"):
+                st.caption("Diese Aussagen haben die Beleg-Pruefung nicht bestanden und gelten nicht als Profilinhalt.")
+                for d in syn["dropped_points"]:
+                    st.markdown(f"- {d['statement']}  \n  _Grund: {d['reason']}_")
+
+    for key, title in (("business", "Geschaeftsmodell"), ("risks", "Risiken laut Bericht"), ("mdna", "Management-Sicht")):
+        sec = c.get(key)
+        if not sec:
+            continue
+        with st.expander(f"{title} ({sec['form_type']} vom {sec['filed_at']})"):
+            st.markdown(f"**KI-Zusammenfassung** (nicht zitatgeprueft): {sec['summary']}")
+            for it in sorted(sec["items"], key=lambda i: -i["importance"])[:6]:
+                st.markdown(f"**{it['title']}**  \n{it['statement']}")
+                st.caption(f"Originalzitat: \u201e{it['quote']}\u201c")
+    if c.get("gaps"):
+        with st.expander(f"Datenluecken ({len(c['gaps'])})"):
+            for g in c["gaps"]:
+                st.markdown(f"- {g}")
+    if c.get("sources"):
+        st.caption("Quellen: " + " | ".join(f"[{s['form_type']} {s['filed_at']}]({s['url']})" for s in c["sources"]))
+    st.download_button("Profil als Markdown herunterladen", render_markdown(c, versions[pick]["created_at"]),
+                       file_name=f"{ticker}_profil_{c['generated_on']}.md", mime="text/markdown")
+
+
+PAGES = {"Uebersicht": page_overview, "Peer-Vergleich": page_peers, "Profil": page_profile,
          "Unternehmen": page_company, "Alerts": page_alerts}
 
 

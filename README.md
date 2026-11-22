@@ -20,6 +20,8 @@ python -m invest_research dashboard   # Dashboard im Browser oeffnen
 python -m invest_research compare     # Peer-Vergleich im Terminal
 python -m invest_research analyze     # KI-Analyse neuester Berichte (braucht angemeldetes Claude Code)
 python -m invest_research show MSFT   # Analyse im Terminal lesen
+python -m invest_research profile     # Unternehmensprofile erstellen (--no-ai ohne KI)
+python -m invest_research show-profile MSFT   # Profil als Markdown
 pytest                                # Tests
 ```
 
