@@ -1,13 +1,13 @@
 # Start-Watchlist: 10 US-Unternehmen in 3 Branchen (fuer sinnvolle Peer-Vergleiche).
-# Aendere die Liste frei; Ticker muessen an der SEC registriert sein.
+# Aendere die Liste frei. 'cik' ist optional (sonst Aufloesung ueber die SEC-Tickerliste).
 companies:
-  - {ticker: MSFT, sector: Software}
-  - {ticker: ADBE, sector: Software}
-  - {ticker: CRM,  sector: Software}
-  - {ticker: ORCL, sector: Software}
-  - {ticker: NVDA, sector: Halbleiter}
-  - {ticker: AMD,  sector: Halbleiter}
-  - {ticker: AVGO, sector: Halbleiter}
-  - {ticker: KO,   sector: Konsumgueter}
-  - {ticker: PEP,  sector: Konsumgueter}
-  - {ticker: PG,   sector: Konsumgueter}
+  - {ticker: MSFT, sector: Software, cik: "0000789019"}
+  - {ticker: ADBE, sector: Software, cik: "0000796343"}
+  - {ticker: CRM,  sector: Software, cik: "0001108524"}
+  - {ticker: ORCL, sector: Software, cik: "0001341439"}
+  - {ticker: NVDA, sector: Halbleiter, cik: "0001045810"}
+  - {ticker: AMD,  sector: Halbleiter, cik: "0000002488"}
+  - {ticker: AVGO, sector: Halbleiter, cik: "0001730168"}
+  - {ticker: KO,   sector: Konsumgueter, cik: "0000021344"}
+  - {ticker: PEP,  sector: Konsumgueter, cik: "0000077476"}
+  - {ticker: PG,   sector: Konsumgueter, cik: "0000080424"}

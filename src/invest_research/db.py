@@ -25,9 +25,11 @@ def sync_watchlist(session: Session, entries: list[WatchlistEntry]) -> None:
     for ticker, entry in wanted.items():
         company = existing.get(ticker)
         if company is None:
-            session.add(Company(ticker=ticker, sector=entry.sector, on_watchlist=True))
+            session.add(Company(ticker=ticker, sector=entry.sector, cik=entry.cik, on_watchlist=True))
         else:
             company.sector = entry.sector
+            if entry.cik:
+                company.cik = entry.cik
             company.on_watchlist = True
     for ticker, company in existing.items():
         if ticker not in wanted:

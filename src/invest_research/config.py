@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 class WatchlistEntry(BaseModel):
     ticker: str
     sector: str | None = None
+    cik: str | None = None  # optional; sonst Aufloesung ueber SEC-Tickerliste
 
 
 @dataclass(frozen=True)
