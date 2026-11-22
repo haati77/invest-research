@@ -61,8 +61,9 @@ def ingest_company(session: Session, client: EdgarClient, company: Company,
             session.add(Metric(company_id=company.id, name=r.name, value=r.value, unit=r.unit,
                                period_end=r.period_end, period_type=r.period_type, source="xbrl"))
             result.metrics_written += 1
-        elif m.value != r.value:
+        elif m.value != r.value or m.source != "xbrl":
             m.value = r.value
+            m.source = "xbrl"  # echter Rohwert verdraengt einen abgeleiteten
             result.metrics_written += 1
     session.commit()
     return result

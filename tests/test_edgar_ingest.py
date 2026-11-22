@@ -57,9 +57,9 @@ def test_parse_facts_annual_revenue_and_tag_merge():
     rows = by_key(parse_facts(FACTS, since_year=2024))
     fy = rows[("revenue", date(2026, 6, 30), "FY")]
     assert fy.value == 331_839_000_000
-    # Quartalswert (Q1 FY27) vorhanden, 6-/9-Monats-Kumulierungen nicht
+    # Quartalswert (Q1 FY27) vorhanden; 6-/9-Monats-Kumulierungen als H1/9M getrennt gefuehrt
     assert ("revenue", date(2026, 9, 30), "Q") in rows
-    assert all(r.period_type in {"FY", "Q", "instant"} for r in rows.values())
+    assert all(r.period_type in {"FY", "Q", "H1", "9M", "instant"} for r in rows.values())
 
 
 def test_parse_facts_since_year_filters_old_and_ignores_other_forms():

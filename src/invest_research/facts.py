@@ -52,7 +52,7 @@ class MetricRow:
     value: float
     unit: str
     period_end: date
-    period_type: str  # FY | Q | instant
+    period_type: str  # FY | Q | H1 | 9M | instant
 
 
 def _period_type(concept: Concept, entry: dict) -> str | None:
@@ -64,7 +64,11 @@ def _period_type(concept: Concept, entry: dict) -> str | None:
     if 350 <= days <= 380:
         return "FY"
     if 80 <= days <= 100:
-        return "Q"  # 6-/9-Monats-Kumulierungen aus 10-Qs werden bewusst ignoriert
+        return "Q"
+    if 170 <= days <= 200:
+        return "H1"  # kumulierte 6 Monate (10-Q); dient nur zur Ableitung von Einzelquartalen
+    if 260 <= days <= 290:
+        return "9M"  # kumulierte 9 Monate
     return None
 
 
