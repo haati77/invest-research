@@ -40,3 +40,14 @@ schtasks /Create /SC DAILY /ST 18:30 /TN "InvestWatch" /TR "C:\Data\dev\invest-r
 
 Pruefen: `schtasks /Query /TN InvestWatch`, entfernen: `schtasks /Delete /TN InvestWatch`.
 Der Textvergleich per KI braucht ein angemeldetes Claude Code; ohne KI laufen die Zahlen-Alerts trotzdem.
+
+## Wenn KI-Funktionen fehlschlagen
+
+```powershell
+python -m invest_research check-claude
+```
+
+Der Befehl zeigt, welches `claude` gefunden wird, dessen Version und das Ergebnis eines Testaufrufs mit der
+echten Fehlermeldung. Typische Ursachen: nicht angemeldet (im Terminal `claude` starten und `/login`),
+Nutzungslimit erreicht oder `claude` nicht im PATH. Zahlen, Kennzahlen, Kurse und Zahlen-Alerts funktionieren
+ohne KI; `watch --no-ai` und `profile --no-ai` laufen ohne `claude`.

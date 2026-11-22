@@ -1,4 +1,4 @@
-"""CLI:  python -m invest_research <init|ingest|compute|prices|update|watch|alerts|analyze|show|profile|show-profile|compare|dashboard|status>"""
+"""CLI:  python -m invest_research <init|ingest|compute|prices|update|watch|alerts|analyze|show|profile|show-profile|check-claude|compare|dashboard|status>"""
 from __future__ import annotations
 
 import argparse
@@ -15,7 +15,7 @@ from .config import load_settings, load_watchlist
 from .db import get_engine, init_db, sync_watchlist
 from .edgar import EdgarClient
 from .ingest import ingest_watchlist
-from .llm import ClaudeCLI, LLMError
+from .llm import ClaudeCLI, LLMError, diagnose
 from .profiles import build_profiles, render_markdown
 from .prices import YahooProvider, update_prices
 from .engine import RATIOS
@@ -118,6 +118,8 @@ def main() -> None:
     p_al.add_argument("--all", action="store_true", help="auch bereits gelesene")
     p_al.add_argument("--min-severity", type=int, default=1, choices=[1, 2, 3])
     p_al.add_argument("--mark-seen", action="store_true", help="angezeigte Alerts als gelesen markieren")
+    p_cc = sub.add_parser("check-claude", help="Anbindung an 'claude -p' pruefen (bei KI-Fehlern zuerst ausfuehren)")
+    p_cc.add_argument("--model", default="haiku")
     sub.add_parser("dashboard", help="Dashboard im Browser starten")
     sub.add_parser("compute", help="Abgeleitete Kennzahlen berechnen (Q4, TTM, Quoten)")
     p_cmp = sub.add_parser("compare", help="Peer-Vergleich anzeigen")
@@ -207,6 +209,13 @@ def main() -> None:
             print_alerts(session, only_unseen=True, min_severity=1, mark_seen=False)
         elif args.cmd == "alerts":
             print_alerts(session, only_unseen=not args.all, min_severity=args.min_severity, mark_seen=args.mark_seen)
+        elif args.cmd == "check-claude":
+            results = diagnose(args.model)
+            for ok, line in results:
+                print(("OK  " if ok else "FEHLER  ") + line)
+            if not all(ok for ok, _ in results):
+                raise SystemExit(1)
+            print("\nclaude -p funktioniert.")
         elif args.cmd == "dashboard":
             import subprocess
             import sys

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from .analysis import Analysis, ask_model, ensure_sections, verify
 from .edgar import EdgarClient
 from .engine import RATIOS
-from .llm import LLMClient
+from .llm import FailureGuard, LLMClient
 from .models import Company, Event, Filing, Metric, Price
 from .textdiff import diff_sections
 
@@ -188,6 +188,7 @@ def detect_text_changes(session: Session, llm: LLMClient | None, edgar: EdgarCli
     der Absatzstatistik. Ergebnis je (neues 10-K, Prompt-Version) einmal gespeichert.
     """
     reports, calls = [], 0
+    guard = FailureGuard()
     companies = list(session.scalars(select(Company).where(Company.on_watchlist.is_(True))
                                      .order_by(Company.ticker)))
     for company in companies:
@@ -231,6 +232,7 @@ def detect_text_changes(session: Session, llm: LLMClient | None, edgar: EdgarCli
                 content.update({k: ai[k] for k in ("summary", "items", "n_items", "n_verified", "low_quality",
                                                    "truncated")})
                 model = resp.model
+                guard.ok()
             if existing:
                 session.delete(existing)
                 session.flush()
@@ -244,6 +246,11 @@ def detect_text_changes(session: Session, llm: LLMClient | None, edgar: EdgarCli
             session.rollback()
             log.warning("Textvergleich fehlgeschlagen: %s: %s", company.ticker, exc)
             reports.append(TextChangeReport(company.ticker, f"FEHLER: {exc}"))
+            guard.failed(exc)
+            if guard.tripped and llm is not None:
+                # Rest nur mit Absatzstatistik; spaeter mit KI aufwertbar (model='none')
+                reports.append(TextChangeReport("*", f"FEHLER: {guard.message()}"))
+                llm = None
     return reports
 
 

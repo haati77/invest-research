@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from . import queries
 from .analysis import extract_json
 from .engine import RATIOS
-from .llm import LLMClient, LLMError
+from .llm import FailureGuard, LLMClient, LLMError
 from .models import Company, Filing, Profile
 from .peers import add_percentiles, overall_score, snapshot
 
@@ -267,15 +267,21 @@ def build_profiles(session: Session, llm: LLMClient | None, *, only_ticker: str 
     ttm = snapshot(session, "TTM")
     overview = queries.overview(session)
     results = []
+    guard = FailureGuard()
     for company in queries.watchlist(session):
         if only_ticker and company.ticker != only_ticker.upper():
             continue
+        if guard.tripped:
+            results.append(ProfileResult(company.ticker, f"FEHLER: {guard.message()}"))
+            continue
         try:
             results.append(_build_one(session, llm, company, fy, ttm, overview, force))
+            guard.ok()
         except Exception as exc:
             session.rollback()
             log.warning("Profil fehlgeschlagen: %s: %s", company.ticker, exc)
             results.append(ProfileResult(company.ticker, f"FEHLER: {exc}"))
+            guard.failed(exc)
     return results
 
 

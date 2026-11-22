@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from .edgar import EdgarClient
 from .filing_text import html_to_text, quote_in_text, split_sections
-from .llm import LLMClient, LLMError, LLMResponse
+from .llm import FailureGuard, LLMClient, LLMError, LLMResponse
 from .models import Analysis, Company, Filing, FilingSection
 
 log = logging.getLogger(__name__)
@@ -195,6 +195,7 @@ def analyze_watchlist(session: Session, llm: LLMClient, edgar: EdgarClient, *, m
         companies = [c for c in companies if c.ticker == only_ticker.upper()]
     reports: list[AnalysisReport] = []
     calls = pending = 0
+    guard = FailureGuard()
     for company in companies:
         for filing in latest_filings(session, company):
             try:
@@ -221,9 +222,14 @@ def analyze_watchlist(session: Session, llm: LLMClient, edgar: EdgarClient, *, m
                 try:
                     result, resp, truncated = ask_model(llm, key, text, header=header)
                     content = verify(result, text, truncated=truncated)
+                    guard.ok()
                 except Exception as exc:
                     log.warning("Analyse fehlgeschlagen: %s %s %s: %s", company.ticker, filing.form_type, key, exc)
                     reports.append(AnalysisReport(company.ticker, filing.form_type, key, f"FEHLER: {exc}"))
+                    guard.failed(exc)
+                    if guard.tripped:  # nicht alle Aufrufe gegen einen Ausfall verbrennen
+                        reports.append(AnalysisReport("*", "-", "-", f"FEHLER: {guard.message()}"))
+                        return reports, pending
                     continue
                 if existing:
                     session.delete(existing)
