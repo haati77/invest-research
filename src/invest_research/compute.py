@@ -10,7 +10,7 @@ from .models import Company, Metric
 
 
 def compute_company(session: Session, company: Company) -> int:
-    """Berechnet alle abgeleiteten Werte fuer ein Unternehmen. Gibt Anzahl geaenderter Zeilen zurueck."""
+    """Berechnet alle abgeleiteten Werte für ein Unternehmen. Gibt Anzahl geänderter Zeilen zurück."""
     existing = {(m.name, m.period_end, m.period_type): m
                 for m in session.scalars(select(Metric).where(Metric.company_id == company.id))}
     base = [MetricRow(m.name, m.value, m.unit or "", m.period_end, m.period_type)
@@ -25,7 +25,7 @@ def compute_company(session: Session, company: Company) -> int:
         elif m.source == "computed" and m.value != r.value:
             m.value = r.value
             changed += 1
-        # XBRL-Rohwerte werden nie von abgeleiteten Werten ueberschrieben
+        # XBRL-Rohwerte werden nie von abgeleiteten Werten überschrieben
     session.commit()
     return changed
 

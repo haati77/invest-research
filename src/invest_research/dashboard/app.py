@@ -55,11 +55,11 @@ def fmt_x(x) -> str:
 
 
 def empty_state() -> None:
-    st.info("Noch keine Daten. Im Projektordner ausfuehren:\n\n"
+    st.info("Noch keine Daten. Im Projektordner ausführen:\n\n"
             "`python -m invest_research update`")
 
 
-# ---------------------------------------------------------------- Uebersicht
+# ---------------------------------------------------------------- Übersicht
 def page_overview(session: Session) -> None:
     st.header("Watchlist")
     ov = queries.overview(session)
@@ -91,7 +91,7 @@ def page_overview(session: Session) -> None:
             "Kurs/FCF": st.column_config.NumberColumn(format="%.1f"),
         })
     st.caption("KGV, KUV und Kurs/FCF nutzen die letzten 12 Monate (TTM). '-' = nicht berechenbar "
-               "(z. B. Verlust, fehlende Daten); es wird nichts geschaetzt.")
+               "(z. B. Verlust, fehlende Daten); es wird nichts geschätzt.")
     unseen = queries.events(session, only_unseen=True)
     if not unseen.empty:
         st.warning(f"{len(unseen)} ungelesene Alerts, siehe Seite 'Alerts'.")
@@ -102,7 +102,7 @@ def page_peers(session: Session) -> None:
     st.header("Peer-Vergleich")
     c1, c2 = st.columns([1, 2])
     basis = c1.radio("Zeitraum", ["FY", "TTM"], horizontal=True,
-                     format_func=lambda b: "Letztes Geschaeftsjahr" if b == "FY" else "Letzte 12 Monate")
+                     format_func=lambda b: "Letztes Geschäftsjahr" if b == "FY" else "Letzte 12 Monate")
     df = snapshot(session, basis)
     if df.empty:
         return empty_state()
@@ -116,7 +116,7 @@ def page_peers(session: Session) -> None:
     label, higher_better, kind = RATIOS[metric]
     d = df[[metric, "sector"]].dropna().reset_index()
     if d.empty:
-        st.info("Fuer diese Kennzahl liegen keine Werte vor.")
+        st.info("Für diese Kennzahl liegen keine Werte vor.")
     else:
         d["wert"] = d[metric] * 100 if kind == "pct" else d[metric]
         unit = "%" if kind == "pct" else "x"
@@ -130,7 +130,7 @@ def page_peers(session: Session) -> None:
                              cornerRadiusBottomRight=4, size=18)
         text = base.mark_text(align="left", dx=4).encode(text=alt.Text("wert:Q", format=".1f"))
         st.altair_chart((bars + text).properties(height=max(120, 34 * len(d))), width="stretch")
-        st.caption(("Hoeher" if higher_better else "Niedriger") + " ist besser.")
+        st.caption(("Höher" if higher_better else "Niedriger") + " ist besser.")
 
     show = ["sector", "period_end", "revenue_growth", "gross_margin", "operating_margin",
             "net_margin", "fcf_margin", "roe", "debt_to_equity", "score"]
@@ -154,7 +154,7 @@ def page_peers(session: Session) -> None:
                                 "KUV": st.column_config.NumberColumn(format="%.1f"),
                                 "Kurs/FCF": st.column_config.NumberColumn(format="%.1f")})
     st.caption("Score = mittleres Perzentil innerhalb der Branche (0 = schlechtester, 100 = bester), "
-               "nur grobe Orientierung bei wenigen Peers. Geschaeftsjahre enden unterschiedlich: Stichtag beachten.")
+               "nur grobe Orientierung bei wenigen Peers. Geschäftsjahre enden unterschiedlich: Stichtag beachten.")
 
 
 # ---------------------------------------------------------------- Unternehmen
@@ -197,7 +197,7 @@ def page_company(session: Session) -> None:
     st.subheader("Kursverlauf")
     ph = queries.price_history(session, c.id)
     if ph.empty:
-        st.info("Keine Kursdaten. `python -m invest_research prices` ausfuehren.")
+        st.info("Keine Kursdaten. `python -m invest_research prices` ausführen.")
     else:
         rng = st.segmented_control("Zeitraum", ["1M", "6M", "1J", "5J"], default="1J", key="rng")
         days = {"1M": 30, "6M": 183, "1J": 365, "5J": 1826}[rng or "1J"]
@@ -205,10 +205,10 @@ def page_company(session: Session) -> None:
         view = ph[pd.to_datetime(ph["date"]) >= cut]
         st.altair_chart(price_chart(view, colors[0], SURFACE[theme_mode()]), width="stretch")
 
-    st.subheader("Geschaeftsjahre")
+    st.subheader("Geschäftsjahre")
     fy = queries.annual_series(session, c.id, ["revenue", "net_income"] + list(MARGIN_LABELS))
     if fy.empty:
-        st.info("Keine Kennzahlen. `python -m invest_research update` ausfuehren.")
+        st.info("Keine Kennzahlen. `python -m invest_research update` ausführen.")
     else:
         fy["Jahr"] = pd.to_datetime(fy["period_end"]).dt.year.astype(str)
         years = sorted(fy["Jahr"].unique())[-8:]
@@ -229,7 +229,7 @@ def page_company(session: Session) -> None:
         m = fy[fy["name"].isin(MARGIN_LABELS)].copy()
         m["Marge"] = m["name"].map(MARGIN_LABELS)
         if m.empty:
-            st.info("Keine Margen verfuegbar.")
+            st.info("Keine Margen verfügbar.")
         else:
             m["wert"] = m["value"] * 100
             color = alt.Color("Marge:N", scale=alt.Scale(domain=list(MARGIN_LABELS.values()),
@@ -252,13 +252,13 @@ def page_company(session: Session) -> None:
     st.dataframe(fl.rename(columns={"filed_at": "Eingereicht", "form_type": "Formular",
                                     "period_end": "Berichtsperiode", "url": "Link"}),
                  width="stretch", hide_index=True,
-                 column_config={"Link": st.column_config.LinkColumn("Link", display_text="oeffnen")})
+                 column_config={"Link": st.column_config.LinkColumn("Link", display_text="öffnen")})
     render_analysis(session, ticker)
 
 
-SECTION_TITLES = {"business": "Geschaeftsmodell", "risks": "Risiken", "risks_diff": "Neue Risiken ggue. Vorjahr",
+SECTION_TITLES = {"business": "Geschäftsmodell", "risks": "Risiken", "risks_diff": "Neue Risiken ggü. Vorjahr",
                   "mdna": "Management-Analyse (MD&A)"}
-KIND_LABELS = {"business": "Geschaeft", "segment": "Segment", "strategy": "Strategie", "risk": "Risiko",
+KIND_LABELS = {"business": "Geschäft", "segment": "Segment", "strategy": "Strategie", "risk": "Risiko",
                "driver": "Treiber", "outlook": "Ausblick", "other": "Sonstiges"}
 
 
@@ -268,8 +268,8 @@ def render_analysis(session: Session, ticker: str) -> None:
     if not rows:
         st.info(f"Noch keine Analyse. Im Terminal: `python -m invest_research analyze --ticker {ticker}`")
         return
-    st.caption("Aussagen werden nur angezeigt, wenn ihr Zitat woertlich im Originaltext steht. "
-               "Die Zusammenfassung ist eine KI-Formulierung und nicht zitatgeprueft. Keine Anlageberatung.")
+    st.caption("Aussagen werden nur angezeigt, wenn ihr Zitat wörtlich im Originaltext steht. "
+               "Die Zusammenfassung ist eine KI-Formulierung und nicht zitatgeprüft. Keine Anlageberatung.")
     filings: dict[tuple, list[dict]] = {}
     for r in rows:
         filings.setdefault((r["form_type"], r["filed_at"], r["url"]), []).append(r)
@@ -294,13 +294,13 @@ def render_analysis(session: Session, ticker: str) -> None:
                     if hidden:
                         note += f"; {hidden} ohne verifiziertes Zitat ausgeblendet"
                     if c.get("truncated"):
-                        note += "; Abschnitt wurde fuer die Analyse gekuerzt"
+                        note += "; Abschnitt wurde für die Analyse gekürzt"
                     st.caption(note + f". Modell: {r['model']}.")
 
 
 # ---------------------------------------------------------------- Alerts
 KIND_NAMES = {"new_filing": "Neues Filing", "metric_change": "Kennzahlensprung",
-              "price_move": "Kursereignis", "text_change": "Textaenderung"}
+              "price_move": "Kursereignis", "text_change": "Textänderung"}
 SEVERITY_NAMES = {3: "HOCH", 2: "MITTEL", 1: "niedrig"}
 
 
@@ -308,8 +308,8 @@ def page_alerts(session: Session) -> None:
     st.header("Alerts")
     ev = queries.events(session, limit=300)
     if ev.empty:
-        st.info("Noch keine Alerts. Sie entstehen bei neuen Filings, Kennzahlenspruengen, Kursereignissen und "
-                "Aenderungen der Risikofaktoren: `python -m invest_research watch`")
+        st.info("Noch keine Alerts. Sie entstehen bei neuen Filings, Kennzahlensprüngen, Kursereignissen und "
+                "Änderungen der Risikofaktoren: `python -m invest_research watch`")
         return
     c1, c2, c3 = st.columns([2, 2, 1])
     tickers = c1.multiselect("Unternehmen", sorted(ev["ticker"].unique()), default=[], placeholder="Alle")
@@ -326,7 +326,7 @@ def page_alerts(session: Session) -> None:
         return
     left, right = st.columns([3, 1])
     left.caption(f"{len(view)} Alert(s). Kennzahlen- und Kursmeldungen kommen aus dem Code; "
-                 "Textaenderungen enthalten eine KI-Einordnung mit geprueften Zitaten.")
+                 "Textänderungen enthalten eine KI-Einordnung mit geprüften Zitaten.")
     if right.button("Angezeigte als gelesen markieren"):
         queries.mark_events_seen(session, [int(i) for i in view["id"]])
         st.rerun()
@@ -364,26 +364,26 @@ def page_profile(session: Session) -> None:
     st.caption(f"Branche: {c.get('sector') or '-'}  |  Stand: {c['generated_on']}")
     if syn:
         st.markdown(f"**{syn['headline']}**")
-        st.caption("KI-Synthese: jede Aussage nennt ihre Belege; Zahlen wurden gegen die Belege geprueft. "
+        st.caption("KI-Synthese: jede Aussage nennt ihre Belege; Zahlen wurden gegen die Belege geprüft. "
                    + (f"{syn['dropped']} Aussage(n) mangels Belegen verworfen. " if syn.get("dropped") else "")
                    + "Das ist keine Anlageberatung.")
     else:
-        st.info("Dieses Profil enthaelt keine KI-Synthese (nur Kennzahlen und geprueften Berichtsaussagen).")
+        st.info("Dieses Profil enthält keine KI-Synthese (nur Kennzahlen und geprüften Berichtsaussagen).")
 
     rows = []
     for name in CORE_RATIOS + list(ABSOLUTE):
         label = RATIOS[name][0] if name in RATIOS else ABSOLUTE[name]
         cells = [sheet.get(f"F:{name}:{b}", "").rsplit(": ", 1)[-1] or "-" for b in ("FY", "TTM")]
-        rows.append({"Kennzahl": label, "Letztes Geschaeftsjahr": cells[0], "Letzte 12 Monate": cells[1]})
+        rows.append({"Kennzahl": label, "Letztes Geschäftsjahr": cells[0], "Letzte 12 Monate": cells[1]})
     for key, label in (("V:pe", "KGV"), ("V:ps", "KUV"), ("V:p_fcf", "Kurs/FCF"), ("P:score", "Branchen-Score")):
         if key in sheet:
-            rows.append({"Kennzahl": label, "Letztes Geschaeftsjahr": sheet[key].rsplit(": ", 1)[-1],
+            rows.append({"Kennzahl": label, "Letztes Geschäftsjahr": sheet[key].rsplit(": ", 1)[-1],
                          "Letzte 12 Monate": ""})
     st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     if syn:
         cols = st.columns(3)
-        for col, key, title in zip(cols, ("strengths", "weaknesses", "watch"), ("Staerken", "Schwaechen", "Beobachten")):
+        for col, key, title in zip(cols, ("strengths", "weaknesses", "watch"), ("Stärken", "Schwächen", "Beobachten")):
             with col:
                 st.markdown(f"#### {title}")
                 for p in syn.get(key, []):
@@ -397,37 +397,37 @@ def page_profile(session: Session) -> None:
                 st.markdown(f"- {q}")
         if syn.get("dropped_points"):
             with st.expander(f"Verworfene KI-Aussagen ({len(syn['dropped_points'])})"):
-                st.caption("Diese Aussagen haben die Beleg-Pruefung nicht bestanden und gelten nicht als Profilinhalt.")
+                st.caption("Diese Aussagen haben die Beleg-Prüfung nicht bestanden und gelten nicht als Profilinhalt.")
                 for d in syn["dropped_points"]:
                     st.markdown(f"- {d['statement']}  \n  _Grund: {d['reason']}_")
 
-    for key, title in (("business", "Geschaeftsmodell"), ("risks", "Risiken laut Bericht"), ("mdna", "Management-Sicht")):
+    for key, title in (("business", "Geschäftsmodell"), ("risks", "Risiken laut Bericht"), ("mdna", "Management-Sicht")):
         sec = c.get(key)
         if not sec:
             continue
         with st.expander(f"{title} ({sec['form_type']} vom {sec['filed_at']})"):
-            st.markdown(f"**KI-Zusammenfassung** (nicht zitatgeprueft): {sec['summary']}")
+            st.markdown(f"**KI-Zusammenfassung** (nicht zitatgeprüft): {sec['summary']}")
             for it in sorted(sec["items"], key=lambda i: -i["importance"])[:6]:
                 st.markdown(f"**{it['title']}**  \n{it['statement']}")
                 st.caption(f"Originalzitat: \u201e{it['quote']}\u201c")
     if pick + 1 < len(versions):
         prev = versions[pick + 1]
         d = diff_profiles(prev["content"], c)
-        with st.expander(f"Aenderungen gegenueber der Vorversion vom {prev['created_at']:%Y-%m-%d %H:%M}"):
+        with st.expander(f"Änderungen gegenüber der Vorversion vom {prev['created_at']:%Y-%m-%d %H:%M}"):
             if d["facts"]:
                 st.dataframe(pd.DataFrame([{"Kennzahl": f["label"], "Vorher": f["old_text"], "Jetzt": f["new_text"]}
                                            for f in d["facts"]]), hide_index=True, width="stretch")
             else:
-                st.caption("Keine Aenderung bei den Kennzahlen.")
+                st.caption("Keine Änderung bei den Kennzahlen.")
             if d["added"] or d["removed"]:
-                st.caption("KI-Formulierungen schwanken von Lauf zu Lauf: die Listen zeigen geaenderte "
-                           "Formulierungen, nicht zwingend inhaltliche Aenderungen.")
+                st.caption("KI-Formulierungen schwanken von Lauf zu Lauf: die Listen zeigen geänderte "
+                           "Formulierungen, nicht zwingend inhaltliche Änderungen.")
             for t in d["added"]:
                 st.markdown(f"+ {t}")
             for t in d["removed"]:
                 st.markdown(f"- ~~{t}~~")
     if c.get("gaps"):
-        with st.expander(f"Datenluecken ({len(c['gaps'])})"):
+        with st.expander(f"Datenlücken ({len(c['gaps'])})"):
             for g in c["gaps"]:
                 st.markdown(f"- {g}")
     if c.get("sources"):
@@ -449,7 +449,7 @@ def render_answer(result) -> None:
         st.dataframe(result.table, width="stretch")
     if result.text:
         t = result.text
-        st.markdown(f"**KI-Zusammenfassung** (nicht zitatgeprueft): {t['summary']}")
+        st.markdown(f"**KI-Zusammenfassung** (nicht zitatgeprüft): {t['summary']}")
         for it in t["items"][:8]:
             st.markdown(f"**{it['title']}**  \n{it['statement']}")
             st.caption(f"Originalzitat: \u201e{it['quote']}\u201c")
@@ -457,9 +457,9 @@ def render_answer(result) -> None:
             st.markdown(f"[Originaldokument]({t['url']})")
     for n in result.notes:
         st.caption(n)
-    with st.expander("Abfrageplan (so hat die KI die Frage uebersetzt)"):
+    with st.expander("Abfrageplan (so hat die KI die Frage übersetzt)"):
         st.json(result.plan.model_dump())
-    st.caption("Die KI uebersetzt nur die Frage. Alle Zahlen stammen aus der lokalen Datenbank. "
+    st.caption("Die KI übersetzt nur die Frage. Alle Zahlen stammen aus der lokalen Datenbank. "
                "Recherche-Hilfe, keine Anlageberatung.")
 
 
@@ -471,19 +471,19 @@ def page_ask(session: Session) -> None:
         if col.button(ex, key=f"ex_{ex}", width="stretch"):
             st.session_state["ask_q"] = ex
     with st.form("ask_form"):
-        question = st.text_input("Frage", key="ask_q", placeholder="z. B. Welche Titel sind guenstig und haben wenig Schulden?")
+        question = st.text_input("Frage", key="ask_q", placeholder="z. B. Welche Titel sind günstig und haben wenig Schulden?")
         submitted = st.form_submit_button("Fragen")
     history = st.session_state.setdefault("ask_history", [])
     if submitted and question.strip():
         try:
-            with st.spinner("Die KI uebersetzt die Frage ..."):
+            with st.spinner("Die KI übersetzt die Frage ..."):
                 llm = make_llm("haiku", "ask", get_db_engine(), load_settings())
                 result = ask_data(session, llm, question)
             render_answer(result)
             history.insert(0, f"{question}  ->  {result.interpreted}")
         except LLMError as exc:
             st.error(f"{exc}")
-            st.caption("Bei Anmeldeproblemen: im Terminal `python -m invest_research check-claude` ausfuehren.")
+            st.caption("Bei Anmeldeproblemen: im Terminal `python -m invest_research check-claude` ausführen.")
     if history:
         with st.expander(f"Bisherige Fragen in dieser Sitzung ({len(history)})"):
             for h in history[:20]:
@@ -502,7 +502,7 @@ def page_system(session: Session) -> None:
     if newest is None:
         st.warning("Keine Kursdaten vorhanden: `python -m invest_research prices`")
     elif (pd.Timestamp.today().normalize() - pd.Timestamp(newest)).days > 4:
-        st.warning(f"Die Kurse sind aelter als 4 Tage (neuester: {newest}). "
+        st.warning(f"Die Kurse sind älter als 4 Tage (neuester: {newest}). "
                    "Aktualisieren: `python -m invest_research update`")
     ds = ds.rename(columns={"last_price": "Letzter Kurs", "last_report": "Letzter Bericht",
                             "last_profile": "Letztes Profil", "analyses": "KI-Analysen", "open_alerts": "Offene Alerts"})
@@ -514,7 +514,7 @@ def page_system(session: Session) -> None:
                 text=f"Heute {u['calls_today']} von {u['max_calls_per_day']} erlaubten KI-Aufrufen")
     cap = f" von {u['max_cost_per_month']:.2f} USD" if u["max_cost_per_month"] else ""
     st.caption(f"Dieser Monat: {u['cost_month']:.3f} USD Listenpreis{cap}. Bei einem Abo wird nichts berechnet, "
-               "es zaehlt dein Nutzungskontingent. Limits stehen in der Datei `.env`.")
+               "es zählt dein Nutzungskontingent. Limits stehen in der Datei `.env`.")
     if u["by_purpose"]:
         st.dataframe(pd.DataFrame(u["by_purpose"]).rename(columns={
             "purpose": "Zweck", "calls": "Aufrufe", "input_tokens": "Token rein", "output_tokens": "Token raus",
@@ -531,7 +531,7 @@ def page_system(session: Session) -> None:
     st.caption(f"Logdatei: {settings.log_path}")
 
 
-PAGES = {"Uebersicht": page_overview, "Peer-Vergleich": page_peers, "Profil": page_profile,
+PAGES = {"Übersicht": page_overview, "Peer-Vergleich": page_peers, "Profil": page_profile,
          "Unternehmen": page_company, "Alerts": page_alerts, "Fragen": page_ask, "System": page_system}
 
 
@@ -539,7 +539,7 @@ def main() -> None:
     st.title("Investment-Forschung")
     page = st.sidebar.radio("Seite", list(PAGES))
     st.sidebar.caption("Recherche-Werkzeug, keine Anlageberatung. Daten: SEC EDGAR und Yahoo Finance "
-                       "(inoffiziell). Alle Angaben ohne Gewaehr.")
+                       "(inoffiziell). Alle Angaben ohne Gewähr.")
     with Session(get_db_engine()) as session:
         PAGES[page](session)
 

@@ -30,13 +30,13 @@ from .peers import add_percentiles, format_value, overall_score, snapshot
 def print_comparison(session: Session, basis: str, sector: str | None) -> None:
     df = snapshot(session, basis)
     if df.empty:
-        print("Keine Daten. Erst 'ingest' und 'compute' ausfuehren.")
+        print("Keine Daten. Erst 'ingest' und 'compute' ausführen.")
         return
     df = add_percentiles(df)
     df["score"] = overall_score(df)
     if sector:
         df = df[df["sector"].str.lower() == sector.lower()]
-    label = "letztes Geschaeftsjahr" if basis == "FY" else "letzte 12 Monate (TTM)"
+    label = "letztes Geschäftsjahr" if basis == "FY" else "letzte 12 Monate (TTM)"
     print(f"Peer-Vergleich ({label}); Score = mittleres Branchen-Perzentil, 0-100, nur Orientierung\n")
     cols = ["revenue_growth", "gross_margin", "operating_margin", "net_margin", "fcf_margin", "roe", "debt_to_equity"]
     short = {"revenue_growth": "Umsatz-Wachst.", "gross_margin": "Bruttomarge", "operating_margin": "Op. Marge",
@@ -72,13 +72,13 @@ def print_analysis(session: Session, ticker: str) -> None:
     from .queries import latest_analyses
     rows = latest_analyses(session, ticker)
     if not rows:
-        print(f"Keine Analyse fuer {ticker.upper()}. Erst: python -m invest_research analyze --ticker {ticker.upper()}")
+        print(f"Keine Analyse für {ticker.upper()}. Erst: python -m invest_research analyze --ticker {ticker.upper()}")
         return
     for r in rows:
         c = r["content"]
         print(f"\n=== {ticker.upper()} {r['form_type']} ({r['filed_at']}) - {r['section']} "
               f"[{c['n_verified']}/{c['n_items']} Zitate verifiziert] ===")
-        print(f"Zusammenfassung (nicht zitatgeprueft): {c['summary']}")
+        print(f"Zusammenfassung (nicht zitatgeprüft): {c['summary']}")
         if c.get("tone"):
             print(f"Ton: {c['tone']}" + ("" if c["tone_verified"] else " (Zitat nicht verifiziert)"))
         for it in sorted(c["items"], key=lambda i: -i["importance"]):
@@ -97,7 +97,7 @@ def print_usage(session: Session, settings) -> None:
     print(f"Heute: {u['calls_today']} von {u['max_calls_per_day']} erlaubten KI-Aufrufen")
     cap = f" von {u['max_cost_per_month']:.2f} USD" if u["max_cost_per_month"] else " (kein Limit gesetzt)"
     print(f"Dieser Monat: {u['cost_month']:.3f} USD Listenpreis{cap}; bei Abo wird nichts berechnet, "
-          "es zaehlt dein Nutzungskontingent.")
+          "es zählt dein Nutzungskontingent.")
     for r in u["by_purpose"]:
         print(f"  {r['purpose']:8} {r['calls']:4} Aufrufe  {r['input_tokens']:>9,} Token rein  "
               f"{r['output_tokens']:>8,} raus  {r['cost_usd']:.3f} USD")
@@ -113,7 +113,7 @@ def print_answer(result, *, show_plan: bool = False) -> None:
         print(result.table.to_string())
     if result.text:
         t = result.text
-        print(f"KI-Zusammenfassung (nicht zitatgeprueft): {t['summary']}\n")
+        print(f"KI-Zusammenfassung (nicht zitatgeprüft): {t['summary']}\n")
         for it in t["items"][:8]:
             print(f"  - {it['title']}: {it['statement']}\n      Zitat: \"{it['quote']}\"")
     for n in result.notes:
@@ -127,38 +127,38 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="invest_research")
     parser.add_argument("-v", "--verbose", action="store_true", help="auch Info-Meldungen auf der Konsole (Logdatei hat sie immer)")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("init", help="Datenbank anlegen und Watchlist uebernehmen")
+    sub.add_parser("init", help="Datenbank anlegen und Watchlist übernehmen")
     p_ing = sub.add_parser("ingest", help="Filings und Kennzahlen von EDGAR laden")
     p_ing.add_argument("--ticker", help="nur diesen Ticker laden")
     p_ing.add_argument("--years", type=int, default=6, help="Anzahl Jahre Historie (Standard 6)")
     sub.add_parser("prices", help="Kursdaten laden (inkrementell)")
     p_upd = sub.add_parser("update", help="Alles aktualisieren: ingest + compute + prices")
     p_upd.add_argument("--years", type=int, default=6)
-    p_an = sub.add_parser("analyze", help="KI-Analyse neuester 10-K/10-Q (per 'claude -p', zitatgeprueft)")
+    p_an = sub.add_parser("analyze", help="KI-Analyse neuester 10-K/10-Q (per 'claude -p', zitatgeprüft)")
     p_an.add_argument("--ticker", help="nur diesen Ticker")
     p_an.add_argument("--max-calls", type=int, default=12, help="max. KI-Aufrufe je Lauf (Standard 12)")
-    p_an.add_argument("--model", default="haiku", help="Modell fuer claude -p (Standard haiku; sonnet = gruendlicher, mehr Abo-Verbrauch)")
+    p_an.add_argument("--model", default="haiku", help="Modell für claude -p (Standard haiku; sonnet = gründlicher, mehr Abo-Verbrauch)")
     p_an.add_argument("--force", action="store_true", help="vorhandene Analysen neu erstellen")
     p_show = sub.add_parser("show", help="KI-Analyse eines Unternehmens anzeigen")
     p_show.add_argument("ticker")
-    p_pr = sub.add_parser("profile", help="Unternehmensprofile erstellen (neue Version nur bei geaenderten Eingaben)")
+    p_pr = sub.add_parser("profile", help="Unternehmensprofile erstellen (neue Version nur bei geänderten Eingaben)")
     p_pr.add_argument("--ticker", help="nur diesen Ticker")
-    p_pr.add_argument("--force", action="store_true", help="auch bei unveraenderten Eingaben neue Version")
-    p_pr.add_argument("--no-ai", action="store_true", help="ohne KI-Synthese (kein claude noetig)")
-    p_pr.add_argument("--model", default="haiku", help="Modell fuer die Synthese (Standard haiku)")
+    p_pr.add_argument("--force", action="store_true", help="auch bei unveränderten Eingaben neue Version")
+    p_pr.add_argument("--no-ai", action="store_true", help="ohne KI-Synthese (kein claude nötig)")
+    p_pr.add_argument("--model", default="haiku", help="Modell für die Synthese (Standard haiku)")
     p_sp = sub.add_parser("show-profile", help="Neuestes Profil als Markdown ausgeben")
     p_sp.add_argument("ticker")
-    p_w = sub.add_parser("watch", help="Veraenderungen erkennen: Kennzahlensprung, Kursereignis, Risikotext-Vergleich")
+    p_w = sub.add_parser("watch", help="Veränderungen erkennen: Kennzahlensprung, Kursereignis, Risikotext-Vergleich")
     p_w.add_argument("--ticker", help="nur diesen Ticker")
     p_w.add_argument("--no-text", action="store_true", help="Textvergleich der Risikofaktoren auslassen (kein Download)")
-    p_w.add_argument("--no-ai", action="store_true", help="Textvergleich ohne KI-Einordnung (kein claude noetig)")
+    p_w.add_argument("--no-ai", action="store_true", help="Textvergleich ohne KI-Einordnung (kein claude nötig)")
     p_w.add_argument("--max-calls", type=int, default=6, help="max. KI-Aufrufe je Lauf (Standard 6)")
     p_w.add_argument("--model", default="haiku")
     p_al = sub.add_parser("alerts", help="Alerts im Terminal anzeigen")
     p_al.add_argument("--all", action="store_true", help="auch bereits gelesene")
     p_al.add_argument("--min-severity", type=int, default=1, choices=[1, 2, 3])
     p_al.add_argument("--mark-seen", action="store_true", help="angezeigte Alerts als gelesen markieren")
-    p_cc = sub.add_parser("check-claude", help="Anbindung an 'claude -p' pruefen (bei KI-Fehlern zuerst ausfuehren)")
+    p_cc = sub.add_parser("check-claude", help="Anbindung an 'claude -p' prüfen (bei KI-Fehlern zuerst ausführen)")
     p_cc.add_argument("--model", default="haiku")
     sub.add_parser("dashboard", help="Dashboard im Browser starten")
     sub.add_parser("compute", help="Abgeleitete Kennzahlen berechnen (Q4, TTM, Quoten)")
@@ -166,17 +166,22 @@ def main() -> None:
     p_cmp.add_argument("--basis", choices=["FY", "TTM"], default="FY")
     p_cmp.add_argument("--sector", help="nur diese Branche")
     sub.add_parser("usage", help="KI-Nutzung und Limits anzeigen")
-    p_ask = sub.add_parser("ask", help="Frage in natuerlicher Sprache an die Daten stellen")
+    p_ask = sub.add_parser("ask", help="Frage in natürlicher Sprache an die Daten stellen")
     p_ask.add_argument("question", nargs="+", help='z. B. "Welche Titel haben sinkende Margen und steigende Schulden?"')
     p_ask.add_argument("--model", default="haiku")
     p_ask.add_argument("--plan", action="store_true", help="auch den Abfrageplan als JSON zeigen")
     sub.add_parser("status", help="Datenbestand anzeigen")
     args = parser.parse_args()
 
+    for stream in (sys.stdout, sys.stderr):  # nie wegen eines nicht darstellbaren Zeichens abbrechen (z. B. Umleitung in Datei)
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     settings = load_settings()
     setup_logging(settings.log_path, verbose=args.verbose)
     log.info("Start: %s", " ".join(sys.argv[1:]) or args.cmd)
-    if args.cmd in DATA_COMMANDS:  # Ausgabezeilen datenaendernder Befehle landen auch in der Logdatei
+    if args.cmd in DATA_COMMANDS:  # Ausgabezeilen datenändernder Befehle landen auch in der Logdatei
         sys.stdout = Tee(sys.stdout, log)
     engine = get_engine(settings)
     init_db(engine)
@@ -214,10 +219,10 @@ def main() -> None:
             reports, pending = analyze_watchlist(session, llm, EdgarClient(settings.sec_user_agent),
                                                  max_calls=args.max_calls, only_ticker=args.ticker, force=args.force)
             for r in reports:
-                detail = f"{r.n_verified}/{r.n_items} Zitate verifiziert" if r.status in ("ok", "uebersprungen") else ""
+                detail = f"{r.n_verified}/{r.n_items} Zitate verifiziert" if r.status in ("ok", "übersprungen") else ""
                 print(f"{r.ticker:6} {r.form_type:5} {r.section:9} {r.status} {detail}")
             if pending:
-                print(f"\n{pending} Abschnitte noch offen: 'analyze' erneut ausfuehren (Fortschritt ist gespeichert).")
+                print(f"\n{pending} Abschnitte noch offen: 'analyze' erneut ausführen (Fortschritt ist gespeichert).")
         elif args.cmd == "show":
             print_analysis(session, args.ticker)
         elif args.cmd == "profile":
@@ -237,7 +242,7 @@ def main() -> None:
             from .queries import profile_versions
             versions = profile_versions(session, args.ticker)
             if not versions:
-                raise SystemExit(f"Kein Profil fuer {args.ticker.upper()}. Erst: python -m invest_research profile --ticker {args.ticker.upper()}")
+                raise SystemExit(f"Kein Profil für {args.ticker.upper()}. Erst: python -m invest_research profile --ticker {args.ticker.upper()}")
             print(render_markdown(versions[0]["content"], versions[0]["created_at"]))
         elif args.cmd == "watch":
             n = detect_all_numeric(session, args.ticker)
@@ -251,7 +256,7 @@ def main() -> None:
                         raise SystemExit(f"{exc}\n(Oder mit --no-ai ohne KI-Einordnung.)")
                 for r in detect_text_changes(session, llm, EdgarClient(settings.sec_user_agent),
                                              only_ticker=args.ticker, max_calls=args.max_calls):
-                    extra = f" ({r.n_added} neue/geaenderte, {r.n_removed} entfallene Absaetze)" if r.n_added or r.n_removed else ""
+                    extra = f" ({r.n_added} neue/geänderte, {r.n_removed} entfallene Absätze)" if r.n_added or r.n_removed else ""
                     print(f"Risikotext {r.ticker:6} {r.status}{extra}")
             print_alerts(session, only_unseen=True, min_severity=1, mark_seen=False)
         elif args.cmd == "alerts":

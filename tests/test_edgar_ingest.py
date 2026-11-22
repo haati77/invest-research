@@ -57,7 +57,7 @@ def test_parse_facts_annual_revenue_and_tag_merge():
     rows = by_key(parse_facts(FACTS, since_year=2024))
     fy = rows[("revenue", date(2026, 6, 30), "FY")]
     assert fy.value == 331_839_000_000
-    # Quartalswert (Q1 FY27) vorhanden; 6-/9-Monats-Kumulierungen als H1/9M getrennt gefuehrt
+    # Quartalswert (Q1 FY27) vorhanden; 6-/9-Monats-Kumulierungen als H1/9M getrennt geführt
     assert ("revenue", date(2026, 9, 30), "Q") in rows
     assert all(r.period_type in {"FY", "Q", "H1", "9M", "instant"} for r in rows.values())
 
@@ -65,7 +65,7 @@ def test_parse_facts_annual_revenue_and_tag_merge():
 def test_parse_facts_since_year_filters_old_and_ignores_other_forms():
     rows = parse_facts(FACTS, since_year=2024)
     assert min(r.period_end.year for r in rows) >= 2024  # alter 'Revenues'-Tag (2010) raus
-    # NetIncome aus DEF 14A (end 2026-06-30) darf nicht ueber den 10-K-Wert gewinnen
+    # NetIncome aus DEF 14A (end 2026-06-30) darf nicht über den 10-K-Wert gewinnen
     ni = by_key(rows)[("net_income", date(2026, 6, 30), "FY")]
     assert ni.value > 0
 

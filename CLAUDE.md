@@ -23,7 +23,7 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 5. KI-Berichtsanalyse -- erledigt
 6. Unternehmensprofile -- erledigt
 7. Veraenderungserkennung + Alerts -- erledigt
-8. Politur (Limits, Logging, Fragen an die Daten)
+8. Politur (Limits, Logging, Fragen an die Daten, Umlaute) -- erledigt
 
 ## Datenstand (Schritt 2)
 - CLI: `python -m invest_research init|ingest [--ticker X] [--years N]|status`
@@ -73,7 +73,6 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 - GRENZE: Zahlen und Belege werden geprueft, Kausalaussagen ("getrieben von ...") und Wertungen ("hoch") nicht. Offene Fragen sind Fragen, keine Fakten.
 - Neue Version nur bei geaenderten Eingaben (Hash ueber Kennzahlen FY/TTM und Analysen; Kurs/Bewertung zaehlen nicht) oder `--force`. Ein Profil ohne KI und eines mit KI sind verschiedene Versionen. Ohne Berichtsanalyse wird nie das LLM aufgerufen.
 - Migration: `db.init_db` ergaenzt fehlende nullable Spalten in bestehenden Datenbanken (`_add_missing_columns`). Neue Modellspalten muessen nullable sein oder einen server_default haben.
-- TODO Schritt 8: Oberflaeche nutzt Ersatzschreibungen (ae/oe/ue) statt Umlaute; auf echte Umlaute umstellen (Tests nutzen die Seitennamen als Schluessel).
 
 ## Veraenderungserkennung und Alerts (Schritt 7)
 - CLI: `watch [--ticker T] [--no-text] [--no-ai] [--max-calls 6]`, `alerts [--all] [--min-severity N] [--mark-seen]`. `update` erzeugt zusaetzlich die Zahlen-Alerts. Dashboard: Seite "Alerts" (Filter, nach Wichtigkeit sortiert, gelesen markieren); Profil-Seite zeigt Aenderungen gegenueber der Vorversion (`profiles.diff_profiles`).
@@ -84,3 +83,10 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 - Nicht abgedeckt: Textvergleich fuer MD&A/Geschaeftsbericht und 10-Q (zu viel Rauschen durch wechselnde Zahlen), Benachrichtigung per E-Mail/Telegram, Alerts auf Basis von Kursniveaus (52W-Hoch/Tief).
 - Windows: `scripts/daily_run.bat` fuer die Aufgabenplanung (README); Zahlen-Alerts und Textvergleich auf Windows bestaetigt (identische Zaehlung wie Linux); KI-Aufrufe siehe Windows-Bericht in Schritt 5.
 - Fund beim Testen: pandas liefert fehlende Textfelder als NaN (float) -> nie `x or ""` bei DataFrame-Zellen, sondern `isinstance(x, str)`.
+
+## Politur (Schritt 8)
+- Umlaute: Oberfläche, CLI-Texte, Kommentare und Tests nutzen echte Umlaute (einmalig per Wortliste umgestellt, nur in Strings/Kommentaren). NEUE Texte direkt mit Umlauten schreiben. Bewusst ASCII: `scripts/daily_run.bat` (Codepage der Eingabeaufforderung), `CLAUDE.md`. Bereits gespeicherte Alerts/Profile behalten die alte Schreibweise. Falls ein Wort fehlt: nicht blind `ue`->`ü` ersetzen (Quelle, Quote, neue ...).
+- Protokoll: `logsetup.py` (rotierende Datei `data/invest_research.log`, Konsole nur Warnungen, `-v` für Info; `Tee` schreibt die Ausgabe datenändernder Befehle mit ins Log). Ausgabe-Streams nutzen `errors="replace"`: nie wegen eines nicht darstellbaren Zeichens abbrechen (Windows-Umleitung in Datei).
+- KI-Nutzung/Limits: `usage.py` (`MeteredLLM` protokolliert JEDEN Aufruf in `llm_calls`; Tageslimit `LLM_MAX_CALLS_PER_DAY`, optional Monatskosten `LLM_MAX_COST_USD_PER_MONTH`). Limit-Verstoß = `LLMBudgetExceeded` -> `FailureGuard` stoppt sofort. Fehlgeschlagene Aufrufe verbrauchen kein Tagesbudget. Tag = lokaler Tag. `make_llm()` ist die einzige Stelle, die `ClaudeCLI` baut. CLI `usage`, Dashboard-Seite "System" (Datenstand, Nutzung, Logauszug).
+- Fragen an die Daten: `ask.py`. Die KI liefert NUR einen Abfrageplan (JSON) über eine Whitelist-Spaltenliste (`CATALOG`, 51 Spalten); Code validiert (`validate_plan`) und führt aus (`run_plan`). "Verstanden als" wird aus dem Plan gebaut, nicht aus KI-Text. Zahlen stammen aus der DB; der Prompt enthält keine Datenwerte. Fehlende Daten werden ausgewiesen (Firma ausgeschlossen), nie geschätzt. Textfragen liefern nur zitatgeprüfte Aussagen aus Schritt 5. Abgelehnt: Prognosen, Empfehlungen, fremde Firmen, Injection-Versuche (kind "unsupported"). Prozent/Verhältnisse im Plan sind Bruchteile (30 % = 0.30).
+- Grenzen: Fragen werden nur über vorhandene Spalten beantwortet (kein Kursverlauf, keine Einzelquartale, keine Berichtstexte außer analysierten Abschnitten); mehrdeutige Fragen können falsch gelesen werden - deshalb "Verstanden als" prüfen. Plan-Qualität bei Haiku ist gut, aber nicht garantiert.

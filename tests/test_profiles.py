@@ -16,14 +16,14 @@ from invest_research.models import Analysis, Company, Filing, Metric, Price, Pro
 from invest_research.profiles import (Point, build_profiles, check_point, render_markdown, synthesize)
 
 FACTS = json.loads(open(os.path.join(os.path.dirname(__file__), "fixtures", "msft_facts_small.json")).read())
-SHEET = {"F:revenue_growth:FY": "Umsatzwachstum (letztes Geschaeftsjahr, Stichtag 2026-06-30): 17.8%",
-         "F:net_margin:FY": "Nettomarge (letztes Geschaeftsjahr, Stichtag 2026-06-30): 40.3%",
+SHEET = {"F:revenue_growth:FY": "Umsatzwachstum (letztes Geschäftsjahr, Stichtag 2026-06-30): 17.8%",
+         "F:net_margin:FY": "Nettomarge (letztes Geschäftsjahr, Stichtag 2026-06-30): 40.3%",
          "V:pe": "KGV (Kurs 2026-11-20, Gewinn letzte 12 Monate): 25.3x"}
 
 
-# ------------------------------------------------------------ Beleg-Pruefung
+# ------------------------------------------------------------ Beleg-Prüfung
 def test_check_point_accepts_exact_and_german_formatted_numbers():
-    assert check_point(Point(statement="Das Wachstum lag bei 17,8 % im Geschaeftsjahr 2026.",
+    assert check_point(Point(statement="Das Wachstum lag bei 17,8 % im Geschäftsjahr 2026.",
                              evidence=["F:revenue_growth:FY"]), SHEET) is None
     assert check_point(Point(statement="Drei von 10 Kennzahlen", evidence=["V:pe"]), SHEET) is None  # kleine Ganzzahlen frei
 
@@ -130,7 +130,7 @@ def test_profile_without_ai_has_facts_gaps_and_is_idempotent(session):
     assert c["facts"]["fy"]["values"]["revenue"] == 331_839_000_000
     assert "F:revenue_growth:FY" in c["sheet"] and "V:pe" in c["sheet"]
     assert any("Bruttomarge" in g or "KI-Berichtsanalyse" in g for g in c["gaps"])
-    assert build_profiles(session, None, only_ticker="MSFT")[0].status == "unveraendert"
+    assert build_profiles(session, None, only_ticker="MSFT")[0].status == "unverändert"
     assert len(versions(session)) == 1
 
 
@@ -144,7 +144,7 @@ def test_profile_with_ai_new_version_then_stable_then_force(session):
     assert latest.model == "fake" and len(versions(session)) == 2
     assert [p["statement"][:7] for p in latest.content["synthesis"]["strengths"]] == ["Wachstu"]
     assert latest.content["synthesis"]["dropped_points"][0]["reason"].startswith("Zahl nicht")
-    assert build_profiles(session, llm, only_ticker="MSFT")[0].status == "unveraendert" and llm.calls == 1
+    assert build_profiles(session, llm, only_ticker="MSFT")[0].status == "unverändert" and llm.calls == 1
     assert build_profiles(session, llm, only_ticker="MSFT", force=True)[0].status == "neu"
     assert len(versions(session)) == 3
 
@@ -188,8 +188,8 @@ def test_markdown_contains_core_parts(session):
     build_profiles(session, None, only_ticker="MSFT")
     build_profiles(session, FakeLLM([synth_reply(session)]), only_ticker="MSFT")
     md = render_markdown(versions(session)[-1].content)
-    for part in ("# MICROSOFT CORP (MSFT)", "Kurzbild", "## Kennzahlen", "17.8%", "## Staerken",
-                 "## Offene Fragen", "## Datenluecken", "keine Anlageberatung"):
+    for part in ("# MICROSOFT CORP (MSFT)", "Kurzbild", "## Kennzahlen", "17.8%", "## Stärken",
+                 "## Offene Fragen", "## Datenlücken", "keine Anlageberatung"):
         assert part in md, part
     assert "99.9" not in md  # verworfene Aussage taucht nicht auf
 

@@ -121,7 +121,7 @@ def test_events_and_mark_seen(session):
 
 
 def test_dashboard_smoke_all_pages(tmp_path, monkeypatch):
-    """Startet die App headless, durchlaeuft alle Seiten mit Daten und einer leeren DB."""
+    """Startet die App headless, durchläuft alle Seiten mit Daten und einer leeren DB."""
     import streamlit as st
     from streamlit.testing.v1 import AppTest
     st.cache_resource.clear()  # App cached die DB-Verbindung prozessweit
@@ -133,7 +133,7 @@ def test_dashboard_smoke_all_pages(tmp_path, monkeypatch):
     with Session(engine) as s:
         sync_watchlist(s, [WatchlistEntry(ticker="MSFT", sector="Software")])
         seed(s)
-    for page in ("Uebersicht", "Peer-Vergleich", "Unternehmen", "Alerts"):
+    for page in ("Übersicht", "Peer-Vergleich", "Unternehmen", "Alerts"):
         at = AppTest.from_file(app, default_timeout=30).run()
         at.sidebar.radio[0].set_value(page).run()
         assert not at.exception, f"{page}: {at.exception}"

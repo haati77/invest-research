@@ -1,15 +1,15 @@
 """Kennzahlen-Engine: leitet aus XBRL-Rohwerten abgeleitete Werte und Quoten ab.
 
 Reine Funktionen ohne Datenbank und ohne KI. Fehlende Eingaben ergeben None bzw. gar keine
-Zeile; es wird nie etwas geschaetzt oder erfunden.
+Zeile; es wird nie etwas geschätzt oder erfunden.
 
 Abgeleitet werden:
   * Einzelquartale aus kumulierten Werten (Cashflow wird in 10-Qs nur kumuliert gemeldet):
     Q2 = H1 - Q1, Q3 = 9M - H1
   * Q4 (Jahreswert minus drei Quartale), da Q4 nie einzeln gemeldet wird
   * total_liabilities = Bilanzsumme - Eigenkapital, falls nicht getaggt
-  * TTM (Summe der letzten vier Quartale) fuer Fluss-Kennzahlen
-  * Quoten und Wachstum fuer Geschaeftsjahre (FY) und TTM
+  * TTM (Summe der letzten vier Quartale) für Fluss-Kennzahlen
+  * Quoten und Wachstum für Geschäftsjahre (FY) und TTM
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from .facts import MetricRow
 FLOW_NAMES = ("revenue", "gross_profit", "operating_income", "net_income",
               "eps_diluted", "operating_cash_flow", "capex")
 
-# Anzeige-Metadaten der Quoten: Name -> (Label, hoeher ist besser, Format)
+# Anzeige-Metadaten der Quoten: Name -> (Label, höher ist besser, Format)
 RATIOS: dict[str, tuple[str, bool, str]] = {
     "revenue_growth": ("Umsatzwachstum", True, "pct"),
     "operating_income_growth": ("EBIT-Wachstum", True, "pct"),
@@ -104,7 +104,7 @@ def derive_total_liabilities(base: list[MetricRow]) -> list[MetricRow]:
 
 
 def derive_ttm(rows: list[MetricRow]) -> list[MetricRow]:
-    """TTM = Summe von vier lueckenlos aufeinanderfolgenden Quartalen (je ~90 Tage Abstand)."""
+    """TTM = Summe von vier lückenlos aufeinanderfolgenden Quartalen (je ~90 Tage Abstand)."""
     units = _units(rows)
     out: list[MetricRow] = []
     for name in FLOW_NAMES:
@@ -125,7 +125,7 @@ def _div(a: float | None, b: float | None) -> float | None:
 
 
 def _growth(cur: float | None, prev: float | None) -> float | None:
-    """Wachstum nur bei positiver Basis; bei Verlusten waere die Prozentzahl irrefuehrend."""
+    """Wachstum nur bei positiver Basis; bei Verlusten wäre die Prozentzahl irreführend."""
     if cur is None or prev is None or prev <= 0:
         return None
     return cur / prev - 1

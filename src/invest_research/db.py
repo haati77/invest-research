@@ -20,10 +20,10 @@ def init_db(engine: Engine) -> None:
 
 
 def _add_missing_columns(engine: Engine) -> None:
-    """Einfache Migration: ergaenzt in bestehenden Datenbanken neue (nullable) Spalten.
+    """Einfache Migration: ergänzt in bestehenden Datenbanken neue (nullable) Spalten.
 
     create_all legt nur fehlende Tabellen an, nie fehlende Spalten. Nicht-nullable Spalten
-    ohne Default koennen so nicht nachgeruestet werden und gelten als Programmierfehler.
+    ohne Default können so nicht nachgerüstet werden und gelten als Programmierfehler.
     """
     insp = inspect(engine)
     with engine.begin() as conn:

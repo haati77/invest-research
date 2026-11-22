@@ -20,7 +20,7 @@ SENT = "The company sells widgets to many customers worldwide and reports three 
 
 
 def para(i, n=25):
-    return " ".join(f"term{i}x{j}" for j in range(n))   # eindeutige Woerter je Absatz
+    return " ".join(f"term{i}x{j}" for j in range(n))   # eindeutige Wörter je Absatz
 
 
 OLD_PARAS = [para(i) for i in range(30)]
@@ -102,7 +102,7 @@ def test_start_failure_and_timeout_are_unavailable():
 
     def slow(cmd, stdin, timeout, cwd):
         raise subprocess.TimeoutExpired(cmd, timeout)
-    with pytest.raises(LLMUnavailable, match="Zeitueberschreitung"):
+    with pytest.raises(LLMUnavailable, match="Zeitüberschreitung"):
         ClaudeCLI("haiku", executable="claude", runner=slow).complete("s", "p")
 
 
@@ -117,7 +117,7 @@ def test_tool_attempt_is_blocked_and_reported_as_error_not_outage():
 def test_failure_guard_counts_only_consecutive_outages():
     g = FailureGuard(2)
     g.failed(LLMUnavailable("a"))
-    g.failed(LLMError("Modellantwort ungueltig"))        # kein Ausfall: setzt zurueck
+    g.failed(LLMError("Modellantwort ungültig"))        # kein Ausfall: setzt zurück
     assert not g.tripped
     g.failed(LLMUnavailable("b"))
     g.ok()
@@ -133,7 +133,7 @@ def test_diagnose_reports_missing_program(monkeypatch):
     assert res[0][0] is False and "PATH" in res[0][1]
 
 
-# ------------------------------------------------------------ Schutzschalter in den Ablaeufen
+# ------------------------------------------------------------ Schutzschalter in den Abläufen
 class DownLLM:
     model = "down"
 
@@ -167,7 +167,7 @@ def test_analyze_stops_after_two_outages(five):
     llm = DownLLM()
     reports, _ = analyze_watchlist(s, llm, FakeEdgar(docs), max_calls=50)
     assert llm.calls == 2                                 # nicht 15 Aufrufe gegen einen Ausfall
-    assert reports[-1].ticker == "*" and "KI nicht verfuegbar" in reports[-1].status
+    assert reports[-1].ticker == "*" and "KI nicht verfügbar" in reports[-1].status
     assert s.scalars(select(Analysis)).all() == []
 
 
@@ -179,20 +179,20 @@ def test_text_change_degrades_to_paragraph_stats_after_two_outages(five):
     llm = DownLLM()
     reports = detect_text_changes(s, llm, FakeEdgar(docs), max_calls=50)
     assert llm.calls == 2
-    assert any(r.ticker == "*" and "KI nicht verfuegbar" in r.status for r in reports)
+    assert any(r.ticker == "*" and "KI nicht verfügbar" in r.status for r in reports)
     stored = {a.model for a in s.scalars(select(Analysis))}
-    assert stored == {"none"}                             # Rest nur mit Statistik, spaeter mit KI aufwertbar
+    assert stored == {"none"}                             # Rest nur mit Statistik, später mit KI aufwertbar
     assert len(s.scalars(select(Analysis)).all()) == 3    # AAA/BBB fehlgeschlagen (nichts gespeichert), CCC-EEE ohne KI
 
 
 def test_profiles_skip_remaining_after_two_outages(five):
     s, tickers = five
-    for c in s.scalars(select(Company)):                  # Analysen vorhanden -> KI waere noetig
+    for c in s.scalars(select(Company)):                  # Analysen vorhanden -> KI wäre nötig
         f = s.scalar(select(Filing).where(Filing.company_id == c.id, Filing.form_type == "10-K"))
         s.add(Analysis(filing_id=f.id, section_key="business", prompt_version="v2", model="haiku",
                        content={"summary": "x", "items": [], "n_items": 0, "n_verified": 0}))
     s.commit()
-    for c in s.scalars(select(Company)):                  # minimale Kennzahlen, damit ein Profil moeglich ist
+    for c in s.scalars(select(Company)):                  # minimale Kennzahlen, damit ein Profil möglich ist
         s.add(Metric(company_id=c.id, name="revenue", value=1.0, unit="USD", period_end=date(2026, 6, 30),
                      period_type="FY", source="xbrl"))
     s.commit()
@@ -200,4 +200,4 @@ def test_profiles_skip_remaining_after_two_outages(five):
     res = build_profiles(s, llm)
     assert llm.calls == 2
     assert all(r.status.startswith("FEHLER") for r in res)
-    assert "KI nicht verfuegbar" in res[-1].status
+    assert "KI nicht verfügbar" in res[-1].status

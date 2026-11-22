@@ -1,4 +1,4 @@
-"""Duenner Client fuer SEC EDGAR (kostenlos, offiziell).
+"""Dünner Client für SEC EDGAR (kostenlos, offiziell).
 
 Regeln der SEC: identifizierender User-Agent Pflicht, max. 10 Requests/Sekunde.
 """
@@ -49,7 +49,7 @@ class EdgarClient:
         return self._get(url).json()
 
     def get_document(self, url: str) -> str:
-        """Laedt ein Filing-Dokument (HTML) als Text; httpx entpackt gzip automatisch."""
+        """Lädt ein Filing-Dokument (HTML) als Text; httpx entpackt gzip automatisch."""
         return self._get(url).text
 
     def _get(self, url: str) -> httpx.Response:
@@ -64,7 +64,7 @@ class EdgarClient:
             if resp.status_code in (429, 500, 502, 503, 504) and attempt < self._max_retries:
                 time.sleep(2 ** attempt)
                 continue
-            raise EdgarError(f"EDGAR {resp.status_code} fuer {url}")
+            raise EdgarError(f"EDGAR {resp.status_code} für {url}")
         raise EdgarError(f"EDGAR nicht erreichbar: {url}")  # pragma: no cover
 
     def ticker_map(self) -> dict[str, str]:

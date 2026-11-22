@@ -23,9 +23,9 @@ def body(n=40):
 
 
 def doc(form="10-K"):
-    """Synthetisches Dokument mit Inhaltsverzeichnis, Seitenkopfzeilen und echten Ueberschriften."""
+    """Synthetisches Dokument mit Inhaltsverzeichnis, Seitenkopfzeilen und echten Überschriften."""
     toc = "<p>Item 1. Business</p><p>Item 1A. Risk Factors</p><p>Item 7. Management's Discussion</p>"
-    head = "<div>PART I</div><div>Item 1A</div>"  # laufende Kopfzeile, keine Ueberschrift
+    head = "<div>PART I</div><div>Item 1A</div>"  # laufende Kopfzeile, keine Überschrift
     if form == "10-K":
         main = (f"<div>ITEM 1. BUSINESS</div><p>{body()}</p>{head}"
                 f"<div>ITEM 1A. RISK FACTORS</div><p>{body()}</p><div>12</div>{head}"
@@ -191,7 +191,7 @@ def test_analyze_stores_verified_results_and_is_idempotent(session):
 
     reports2, _ = analyze_watchlist(session, llm, ed, max_calls=10)
     assert llm.calls == 4 and ed.downloads == 2                # nichts doppelt
-    assert all(r.status == "uebersprungen" for r in reports2)
+    assert all(r.status == "übersprungen" for r in reports2)
     assert len(session.scalars(select(Analysis)).all()) == 4
 
 
@@ -226,7 +226,7 @@ def test_unparseable_filing_is_marked_and_not_downloaded_again(session):
 def make_runner(stdout, returncode=0, seen=None):
     def runner(cmd, stdin, timeout, cwd):
         if seen is not None:
-            # Die Systemprompt-Datei existiert nur waehrend des Aufrufs: Inhalt jetzt festhalten
+            # Die Systemprompt-Datei existiert nur während des Aufrufs: Inhalt jetzt festhalten
             sys_file = cmd[cmd.index("--system-prompt-file") + 1]
             seen.update(cmd=cmd, stdin=stdin, cwd=cwd, system=open(sys_file, encoding="utf-8").read())
         return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr="boom")
@@ -238,15 +238,15 @@ def test_claude_cli_is_locked_down_and_parses_usage():
     out = json.dumps({"result": "{}", "is_error": False, "total_cost_usd": 0.01,
                       "usage": {"input_tokens": 5, "cache_creation_input_tokens": 100, "output_tokens": 7}})
     cli = ClaudeCLI("haiku", executable="claude", runner=make_runner(out, seen=seen))
-    system = 'Zeile 1 mit "Anfuehrungszeichen" | Pipe <tags>\nZeile 2 & mehr'
+    system = 'Zeile 1 mit "Anführungszeichen" | Pipe <tags>\nZeile 2 & mehr'
     resp = cli.complete(system, "PROMPT")
     cmd = seen["cmd"]
     assert cmd[cmd.index("--tools") + 1] == ""                       # alle Tools aus (separates leeres Argument)
-    assert "--tools=" not in cmd                                     # '--tools=' wuerde Tools NICHT abschalten
+    assert "--tools=" not in cmd                                     # '--tools=' würde Tools NICHT abschalten
     assert "--no-session-persistence" in cmd and cmd[cmd.index("--model") + 1] == "haiku"
     assert seen["system"] == system and "--system-prompt" not in cmd  # Systemprompt per Datei, nicht per Argument
-    assert seen["stdin"] == "PROMPT" and "PROMPT" not in cmd         # Prompt ueber stdin, nicht argv
-    # Windows (claude.cmd): Argumente duerfen keine Zeilenumbrueche/Shell-Sonderzeichen enthalten
+    assert seen["stdin"] == "PROMPT" and "PROMPT" not in cmd         # Prompt über stdin, nicht argv
+    # Windows (claude.cmd): Argumente dürfen keine Zeilenumbrüche/Shell-Sonderzeichen enthalten
     assert all(not any(ch in a for ch in '\n|<>"&') for a in cmd if a)
     assert seen["cwd"] != os.getcwd()                                # leeres Temp-Verzeichnis
     assert resp.input_tokens == 105 and resp.output_tokens == 7 and resp.cost_usd == 0.01

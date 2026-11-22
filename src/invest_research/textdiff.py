@@ -1,8 +1,8 @@
 """Textvergleich zweier Berichtsabschnitte (z. B. Risikofaktoren dieses Jahr gegen letztes Jahr).
 
-Rein deterministisch, ohne KI. Ein Absatz gilt als neu/geaendert, wenn weniger als die Haelfte
+Rein deterministisch, ohne KI. Ein Absatz gilt als neu/geändert, wenn weniger als die Hälfte
 seiner Wortfolgen (5-Gramme) irgendwo im alten Abschnitt vorkommen. Das ist robust gegen
-umgestellte oder zusammengelegte Absaetze und reagiert auf echte inhaltliche Aenderungen.
+umgestellte oder zusammengelegte Absätze und reagiert auf echte inhaltliche Änderungen.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 WORD_RE = re.compile(r"[a-z0-9]+")
 SHINGLE = 5
-MIN_PARAGRAPH_CHARS = 120  # Ueberschriften und Fragmente zaehlen nicht als Absatz
+MIN_PARAGRAPH_CHARS = 120  # Überschriften und Fragmente zaehlen nicht als Absatz
 
 
 def _words(text: str) -> list[str]:
@@ -30,7 +30,7 @@ def paragraphs(text: str) -> list[str]:
 @dataclass
 class DiffResult:
     added: list[str]      # neu oder wesentlich umformuliert
-    removed: list[str]    # im alten Text, im neuen nicht mehr (sinngemaess)
+    removed: list[str]    # im alten Text, im neuen nicht mehr (sinngemäß)
     n_old: int
     n_new: int
 

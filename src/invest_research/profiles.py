@@ -1,15 +1,15 @@
-"""Versionierte Unternehmensprofile aus Kennzahlen (Code) und geprueften KI-Aussagen.
+"""Versionierte Unternehmensprofile aus Kennzahlen (Code) und geprüften KI-Aussagen.
 
 Aufbau eines Profils (alles in Profile.content, JSON):
   facts       Kennzahlen letztes GJ und TTM, Bewertung, Peer-Einordnung  -> nur Code, nie KI
   sheet       Beleg-Blatt: id -> Text (Kennzahlen 'F:..', Bewertung 'V:..', Peers 'P:..', Berichte 'A:..')
   business / risks / mdna   verifizierte Aussagen mit Originalzitat aus Schritt 5
-  synthesis   (optional) Staerken/Schwaechen/Beobachten/offene Fragen vom LLM, jede Aussage mit
-              Beleg-IDs; Aussagen ohne gueltige Belege oder mit nicht belegten Zahlen werden verworfen
+  synthesis   (optional) Stärken/Schwächen/Beobachten/offene Fragen vom LLM, jede Aussage mit
+              Beleg-IDs; Aussagen ohne gültige Belege oder mit nicht belegten Zahlen werden verworfen
   gaps        fehlende Daten, ehrlich benannt
 
 Das LLM rechnet nicht und bekommt nur Zahlen, die der Code formatiert hat. Ein neues Profil entsteht
-nur, wenn sich Eingaben aendern (Kennzahlen, Berichte, Analysen) oder mit force.
+nur, wenn sich Eingaben ändern (Kennzahlen, Berichte, Analysen) oder mit force.
 """
 from __future__ import annotations
 
@@ -38,8 +38,8 @@ PROFILE_VERSION = "v1"
 CORE_RATIOS = ["revenue_growth", "gross_margin", "operating_margin", "net_margin", "fcf_margin", "roe",
                "debt_to_equity"]
 ABSOLUTE = {"revenue": "Umsatz", "net_income": "Nettogewinn", "fcf": "Freier Cashflow"}
-BASIS_LABEL = {"FY": "letztes Geschaeftsjahr", "TTM": "letzte 12 Monate"}
-DISCLAIMER = "Recherche-Hilfe, keine Anlageberatung. Alle Angaben ohne Gewaehr."
+BASIS_LABEL = {"FY": "letztes Geschäftsjahr", "TTM": "letzte 12 Monate"}
+DISCLAIMER = "Recherche-Hilfe, keine Anlageberatung. Alle Angaben ohne Gewähr."
 
 
 # ------------------------------------------------------------------ Formatierung (Code, nicht KI)
@@ -62,13 +62,13 @@ def _clean(x) -> float | None:
 # ------------------------------------------------------------------ Fakten und Beleg-Blatt
 def build_facts(session: Session, company: Company, fy: pd.DataFrame, ttm: pd.DataFrame,
                 overview: pd.DataFrame) -> tuple[dict, dict[str, str], list[str]]:
-    """Gibt (facts, sheet, gaps) zurueck. sheet: Beleg-ID -> Text mit bereits formatierten Zahlen."""
+    """Gibt (facts, sheet, gaps) zurück. sheet: Beleg-ID -> Text mit bereits formatierten Zahlen."""
     sheet: dict[str, str] = {}
     gaps: list[str] = []
     facts: dict = {"fy": None, "ttm": None, "valuation": None, "peers": None}
     for basis, df in (("FY", fy), ("TTM", ttm)):
         if company.ticker not in df.index:
-            gaps.append(f"Keine Kennzahlen fuer {BASIS_LABEL[basis]} verfuegbar.")
+            gaps.append(f"Keine Kennzahlen für {BASIS_LABEL[basis]} verfügbar.")
             continue
         row = df.loc[company.ticker]
         end = str(row["period_end"])
@@ -78,7 +78,7 @@ def build_facts(session: Session, company: Company, fy: pd.DataFrame, ttm: pd.Da
             if v is None:
                 label = RATIOS[name][0] if name in RATIOS else ABSOLUTE[name]
                 if basis == "FY":
-                    gaps.append(f"{label} nicht verfuegbar (Unternehmen meldet die Basisdaten nicht oder sie sind nicht aussagekraeftig).")
+                    gaps.append(f"{label} nicht verfügbar (Unternehmen meldet die Basisdaten nicht oder sie sind nicht aussagekräftig).")
                 continue
             values[name] = v
             label = RATIOS[name][0] if name in RATIOS else ABSOLUTE[name]
@@ -100,7 +100,7 @@ def build_facts(session: Session, company: Company, fy: pd.DataFrame, ttm: pd.Da
         if val["pe"] is None:
             gaps.append("KGV nicht berechenbar (Verlust oder fehlende Daten).")
     else:
-        gaps.append("Keine Kursdaten fuer die Bewertung.")
+        gaps.append("Keine Kursdaten für die Bewertung.")
 
     if company.ticker in fy.index and company.sector:
         scored = fy[fy["sector"] == company.sector]["score"].dropna().sort_values(ascending=False)
@@ -108,22 +108,22 @@ def build_facts(session: Session, company: Company, fy: pd.DataFrame, ttm: pd.Da
             rank = int(list(scored.index).index(company.ticker)) + 1
             score = float(scored[company.ticker])
             facts["peers"] = {"sector": company.sector, "score": score, "rank": rank, "of": len(scored)}
-            sheet["P:score"] = (f"Branchen-Score ({company.sector}, letztes Geschaeftsjahr): {score * 100:.0f} von 100, "
+            sheet["P:score"] = (f"Branchen-Score ({company.sector}, letztes Geschäftsjahr): {score * 100:.0f} von 100, "
                                 f"Platz {rank} von {len(scored)}")
         else:
-            gaps.append("Zu wenige Vergleichsfirmen in der Branche fuer eine Einordnung.")
+            gaps.append("Zu wenige Vergleichsfirmen in der Branche für eine Einordnung.")
     return facts, sheet, gaps
 
 
 def collect_analysis(session: Session, ticker: str) -> tuple[dict, dict[str, str], list[dict]]:
-    """Verifizierte Aussagen der neuesten Analysen. Gibt (abschnitte, beleg_texte, quellen) zurueck."""
+    """Verifizierte Aussagen der neuesten Analysen. Gibt (abschnitte, beleg_texte, quellen) zurück."""
     rows = queries.latest_analyses(session, ticker)
     sections: dict[str, dict] = {}
     evidence: dict[str, str] = {}
     sources: dict[tuple, dict] = {}
     for r in rows:
         key = r["section"]
-        # je Abschnitt zaehlt die neueste Einreichung (rows sind nach Datum absteigend sortiert)
+        # je Abschnitt zählt die neueste Einreichung (rows sind nach Datum absteigend sortiert)
         if key in sections:
             continue
         c = r["content"]
@@ -183,9 +183,9 @@ def _numbers(text: str) -> set[float]:
 
 
 def check_point(point: Point, sheet: dict[str, str]) -> str | None:
-    """None = gueltig, sonst der Verwerfungsgrund.
+    """None = gültig, sonst der Verwerfungsgrund.
 
-    Gueltig, wenn alle Beleg-IDs existieren und jede Zahl der Aussage in den Belegen vorkommt.
+    Gültig, wenn alle Beleg-IDs existieren und jede Zahl der Aussage in den Belegen vorkommt.
     Kleine ganze Zahlen (<= 10, z. B. 'drei Segmente') sind frei; alles andere muss belegt sein.
     """
     if not point.evidence:
@@ -217,9 +217,9 @@ def synthesize(llm: LLMClient, company: Company, sheet: dict[str, str]) -> dict:
             break
         except (ValueError, ValidationError) as exc:
             error = str(exc)[:200]
-            log.warning("Ungueltige Synthese (%s), Versuch %d", error, attempt + 1)
+            log.warning("Ungültige Synthese (%s), Versuch %d", error, attempt + 1)
     else:
-        raise LLMError(f"Synthese ungueltig: {error}")
+        raise LLMError(f"Synthese ungültig: {error}")
     out: dict = {"headline": syn.headline, "open_questions": syn.open_questions, "dropped": 0,
                  "dropped_points": [], "cost_usd": resp.cost_usd}
     for key in ("strengths", "weaknesses", "watch"):
@@ -245,7 +245,7 @@ def input_hash(facts: dict, analyses_sig: list) -> str:
 @dataclass
 class ProfileResult:
     ticker: str
-    status: str  # neu | unveraendert | FEHLER: ...
+    status: str  # neu | unverändert | FEHLER: ...
     ai: bool = False
     dropped: int = 0
 
@@ -257,7 +257,7 @@ def latest_profile(session: Session, company_id: int) -> Profile | None:
 
 def build_profiles(session: Session, llm: LLMClient | None, *, only_ticker: str | None = None,
                    force: bool = False) -> list[ProfileResult]:
-    """Erstellt je Unternehmen ein neues Profil, wenn sich Eingaben geaendert haben.
+    """Erstellt je Unternehmen ein neues Profil, wenn sich Eingaben geändert haben.
 
     llm=None erzeugt Profile ohne KI-Synthese (Kennzahlen plus verifizierte Aussagen aus Schritt 5).
     """
@@ -291,16 +291,16 @@ def _build_one(session: Session, llm: LLMClient | None, company: Company, fy: pd
     sections, a_evidence, sources = collect_analysis(session, company.ticker)
     analyses_sig = sorted((s["form_type"], s["filed_at"], k, len(s["items"])) for k, s in sections.items())
     if not facts["fy"] and not facts["ttm"] and not sections:
-        return ProfileResult(company.ticker, "FEHLER: keine Daten (erst 'update' ausfuehren)")
+        return ProfileResult(company.ticker, "FEHLER: keine Daten (erst 'update' ausführen)")
     if not sections:
-        gaps.append("Keine KI-Berichtsanalyse vorhanden ('analyze' ausfuehren).")
+        gaps.append("Keine KI-Berichtsanalyse vorhanden ('analyze' ausführen).")
 
     use_ai = llm is not None and bool(sections)
     want_model = llm.model if use_ai else None
     digest = input_hash(facts, analyses_sig)
     last = latest_profile(session, company.id)
     if last and last.input_hash == digest and last.model == want_model and not force:
-        return ProfileResult(company.ticker, "unveraendert", ai=want_model is not None)
+        return ProfileResult(company.ticker, "unverändert", ai=want_model is not None)
 
     full_sheet = {**sheet, **a_evidence}
     synthesis = synthesize(llm, company, full_sheet) if use_ai else None
@@ -323,12 +323,12 @@ def _build_one(session: Session, llm: LLMClient | None, company: Company, fy: pd
 
 # ------------------------------------------------------------------ Vergleich zweier Versionen
 def diff_profiles(old: dict, new: dict) -> dict:
-    """Was hat sich zwischen zwei Profil-Versionen geaendert? Rein deterministisch.
+    """Was hat sich zwischen zwei Profil-Versionen geändert? Rein deterministisch.
 
-    facts:   Kennzahlen mit Wertaenderung (alt/neu aus dem Beleg-Blatt, Delta nur bei echten Zahlen)
-    added/removed: KI-Aussagen (Staerken/Schwaechen/Beobachten), die neu sind bzw. entfallen sind.
+    facts:   Kennzahlen mit Wertänderung (alt/neu aus dem Beleg-Blatt, Delta nur bei echten Zahlen)
+    added/removed: KI-Aussagen (Stärken/Schwächen/Beobachten), die neu sind bzw. entfallen sind.
              KI-Formulierungen schwanken von Lauf zu Lauf; die Liste zeigt daher Formulierungen,
-             nicht automatisch inhaltliche Aenderungen.
+             nicht automatisch inhaltliche Änderungen.
     """
     def values(c: dict) -> dict[str, float]:
         out = {}
@@ -366,7 +366,7 @@ def render_markdown(content: dict, created_at: datetime | None = None) -> str:
     if syn:
         out += [f"**{syn['headline']}**", ""]
     f = c["facts"]
-    out += ["## Kennzahlen", "", "| Kennzahl | Letztes Geschaeftsjahr | Letzte 12 Monate |", "|---|---|---|"]
+    out += ["## Kennzahlen", "", "| Kennzahl | Letztes Geschäftsjahr | Letzte 12 Monate |", "|---|---|---|"]
     for name in CORE_RATIOS + list(ABSOLUTE):
         cells = []
         for basis in ("FY", "TTM"):
@@ -380,22 +380,22 @@ def render_markdown(content: dict, created_at: datetime | None = None) -> str:
     if f.get("valuation") and f["valuation"].get("price_date"):
         out += ["", f"Bewertung mit Kurs vom {f['valuation']['price_date']}."]
     if syn:
-        for key, title in (("strengths", "Staerken"), ("weaknesses", "Schwaechen"), ("watch", "Beobachten")):
+        for key, title in (("strengths", "Stärken"), ("weaknesses", "Schwächen"), ("watch", "Beobachten")):
             if syn.get(key):
                 out += ["", f"## {title}", ""]
                 out += [f"- {p['statement']} _(Belege: {', '.join(p['evidence'])})_" for p in syn[key]]
         if syn.get("open_questions"):
             out += ["", "## Offene Fragen", ""] + [f"- {q}" for q in syn["open_questions"]]
-    for key, title in (("business", "Geschaeftsmodell"), ("risks", "Risiken laut Bericht"), ("mdna", "Management-Sicht")):
+    for key, title in (("business", "Geschäftsmodell"), ("risks", "Risiken laut Bericht"), ("mdna", "Management-Sicht")):
         sec = c.get(key)
         if not sec:
             continue
         out += ["", f"## {title} ({sec['form_type']} vom {sec['filed_at']})", "",
-                f"_KI-Zusammenfassung, nicht zitatgeprueft:_ {sec['summary']}", ""]
+                f"_KI-Zusammenfassung, nicht zitatgeprüft:_ {sec['summary']}", ""]
         for it in sorted(sec["items"], key=lambda i: -i["importance"])[:6]:
             out += [f"- **{it['title']}**: {it['statement']}", f"  > \"{it['quote']}\""]
     if c.get("gaps"):
-        out += ["", "## Datenluecken", ""] + [f"- {g}" for g in c["gaps"]]
+        out += ["", "## Datenlücken", ""] + [f"- {g}" for g in c["gaps"]]
     if c.get("sources"):
         out += ["", "## Quellen", ""] + [f"- {s['form_type']} vom {s['filed_at']}: {s['url']}" for s in c["sources"]]
     out += ["", f"_{c.get('disclaimer', DISCLAIMER)}_", ""]

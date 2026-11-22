@@ -1,8 +1,8 @@
-"""KI-Berichtsanalyse: Abschnitte laden, per LLM auswerten, Zitate gegen den Originaltext pruefen.
+"""KI-Berichtsanalyse: Abschnitte laden, per LLM auswerten, Zitate gegen den Originaltext prüfen.
 
-Grundsaetze (siehe CLAUDE.md):
-  * Das LLM liefert strukturierte Aussagen MIT woertlichem Zitat. Ein Zitat, das nicht
-    zusammenhaengend im Originalabschnitt steht, markiert die Aussage als nicht verifiziert.
+Grundsätze (siehe CLAUDE.md):
+  * Das LLM liefert strukturierte Aussagen MIT wörtlichem Zitat. Ein Zitat, das nicht
+    zusammenhängend im Originalabschnitt steht, markiert die Aussage als nicht verifiziert.
   * Das LLM rechnet nicht; Zahlen kommen aus der Kennzahlen-Engine.
   * Ergebnisse werden je (Filing, Abschnitt, Prompt-Version) einmal gespeichert; `force` wiederholt.
 """
@@ -26,7 +26,7 @@ from .models import Analysis, Company, Filing, FilingSection
 log = logging.getLogger(__name__)
 
 PROMPT_VERSION = "v2"
-MAX_SECTION_CHARS = 150_000  # ca. 37k Token; laengere Abschnitte werden gekuerzt und markiert
+MAX_SECTION_CHARS = 150_000  # ca. 37k Token; längere Abschnitte werden gekürzt und markiert
 NONE_KEY = "_none"  # Marker: Abschnitte wurden gesucht, aber nicht gefunden (kein erneuter Download)
 SECTION_LABELS = {"business": "Item 1 Business", "risks": "Item 1A Risk Factors",
                   "mdna": "Management's Discussion and Analysis"}
@@ -105,7 +105,7 @@ TASKS = {
 
 
 def extract_json(text: str) -> dict:
-    """Holt das JSON-Objekt aus der Modellantwort (toleriert Codezaeune und Vor-/Nachtext)."""
+    """Holt das JSON-Objekt aus der Modellantwort (toleriert Codezäune und Vor-/Nachtext)."""
     t = text.strip()
     t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t)
     start, end = t.find("{"), t.rfind("}")
@@ -115,7 +115,7 @@ def extract_json(text: str) -> dict:
 
 
 def ask_model(llm: LLMClient, section_key: str, text: str, *, header: str) -> tuple[SectionResult, LLMResponse, bool]:
-    """Fragt das Modell; bei ungueltigem JSON/Schema genau ein Wiederholungsversuch mit Fehlerhinweis."""
+    """Fragt das Modell; bei ungültigem JSON/Schema genau ein Wiederholungsversuch mit Fehlerhinweis."""
     truncated = len(text) > MAX_SECTION_CHARS
     body = text[:MAX_SECTION_CHARS]
     prompt = f"{header}\n{TASKS[section_key]}\n\n<filing_section>\n{body}\n</filing_section>"
@@ -127,12 +127,12 @@ def ask_model(llm: LLMClient, section_key: str, text: str, *, header: str) -> tu
             return SectionResult.model_validate(extract_json(resp.text)), resp, truncated
         except (ValueError, ValidationError) as exc:
             error = str(exc)[:200]
-            log.warning("Ungueltige Modellantwort (%s), Versuch %d", error, attempt + 1)
-    raise LLMError(f"Modellantwort ungueltig: {error}")
+            log.warning("Ungültige Modellantwort (%s), Versuch %d", error, attempt + 1)
+    raise LLMError(f"Modellantwort ungültig: {error}")
 
 
 def verify(result: SectionResult, section_text: str, *, truncated: bool) -> dict:
-    """Prueft jedes Zitat woertlich gegen den (ggf. gekuerzten) Originaltext, den das Modell sah."""
+    """Prüft jedes Zitat wörtlich gegen den (ggf. gekürzten) Originaltext, den das Modell sah."""
     seen = section_text[:MAX_SECTION_CHARS]
     items = [{**it.model_dump(), "verified": quote_in_text(it.quote, seen)} for it in result.items]
     n_ok = sum(i["verified"] for i in items)
@@ -150,13 +150,13 @@ class AnalysisReport:
     ticker: str
     form_type: str
     section: str
-    status: str  # ok | uebersprungen | FEHLER: ...
+    status: str  # ok | übersprungen | FEHLER: ...
     n_items: int = 0
     n_verified: int = 0
 
 
 def ensure_sections(session: Session, edgar: EdgarClient, filing: Filing) -> dict[str, str]:
-    """Laedt das Filing einmal, zerlegt es und speichert die Abschnitte."""
+    """Lädt das Filing einmal, zerlegt es und speichert die Abschnitte."""
     rows = list(session.scalars(select(FilingSection).where(FilingSection.filing_id == filing.id)))
     if rows:
         return {r.key: r.text for r in rows if r.key != NONE_KEY}
@@ -184,9 +184,9 @@ def latest_filings(session: Session, company: Company) -> list[Filing]:
 
 def analyze_watchlist(session: Session, llm: LLMClient, edgar: EdgarClient, *, max_calls: int = 12,
                       only_ticker: str | None = None, force: bool = False) -> tuple[list[AnalysisReport], int]:
-    """Analysiert fehlende Abschnitte, hoechstens `max_calls` LLM-Aufrufe je Lauf.
+    """Analysiert fehlende Abschnitte, höchstens `max_calls` LLM-Aufrufe je Lauf.
 
-    Gibt (Bericht, Anzahl noch offener Abschnitte) zurueck. Fortschritt ist gespeichert; ein
+    Gibt (Bericht, Anzahl noch offener Abschnitte) zurück. Fortschritt ist gespeichert; ein
     weiterer Lauf macht dort weiter (schont Abo-Limits).
     """
     companies = list(session.scalars(select(Company).where(Company.on_watchlist.is_(True))
@@ -209,7 +209,7 @@ def analyze_watchlist(session: Session, llm: LLMClient, edgar: EdgarClient, *, m
                     Analysis.filing_id == filing.id, Analysis.section_key == key,
                     Analysis.prompt_version == PROMPT_VERSION))
                 if existing and not force:
-                    reports.append(AnalysisReport(company.ticker, filing.form_type, key, "uebersprungen",
+                    reports.append(AnalysisReport(company.ticker, filing.form_type, key, "übersprungen",
                                                   existing.content.get("n_items", 0),
                                                   existing.content.get("n_verified", 0)))
                     continue

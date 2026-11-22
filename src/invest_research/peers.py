@@ -14,8 +14,8 @@ SNAPSHOT_EXTRA = ("revenue", "net_income", "fcf", "net_debt")
 def snapshot(session: Session, basis: str = "FY") -> pd.DataFrame:
     """Neueste Periode je Unternehmen (basis 'FY' oder 'TTM'); Index = Ticker.
 
-    Die Spalte 'period_end' zeigt den Stichtag; Geschaeftsjahre sind nicht kalendergleich,
-    der Vergleich ist daher 'letztes verfuegbares Geschaeftsjahr' bzw. 'letzte 12 Monate'.
+    Die Spalte 'period_end' zeigt den Stichtag; Geschäftsjahre sind nicht kalendergleich,
+    der Vergleich ist daher 'letztes verfügbares Geschäftsjahr' bzw. 'letzte 12 Monate'.
     """
     if basis not in ("FY", "TTM"):
         raise ValueError("basis muss 'FY' oder 'TTM' sein")
@@ -46,12 +46,12 @@ def _pct_rank(series: pd.Series, higher_is_better: bool) -> pd.Series:
     valid = series.dropna()
     if len(valid) < 2:
         return pd.Series(float("nan"), index=series.index)
-    ranks = valid.rank(ascending=higher_is_better, method="average")  # hoechster Rang = bester
+    ranks = valid.rank(ascending=higher_is_better, method="average")  # höchster Rang = bester
     return ((ranks - 1) / (len(valid) - 1)).reindex(series.index)
 
 
 def add_percentiles(df: pd.DataFrame) -> pd.DataFrame:
-    """Haengt je Quote 'pct_<name>' (innerhalb der Branche) und 'pctall_<name>' (alle) an."""
+    """Hängt je Quote 'pct_<name>' (innerhalb der Branche) und 'pctall_<name>' (alle) an."""
     out = df.copy()
     for name, (_, higher_better, _) in RATIOS.items():
         if name not in out:
@@ -63,7 +63,7 @@ def add_percentiles(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def overall_score(df: pd.DataFrame, group: str = "sector") -> pd.Series:
-    """Durchschnitt der Perzentile ueber alle verfuegbaren Quoten (reine Orientierung)."""
+    """Durchschnitt der Perzentile über alle verfügbaren Quoten (reine Orientierung)."""
     prefix = "pct_" if group == "sector" else "pctall_"
     cols = [c for c in df.columns if c.startswith(prefix)]
     return df[cols].mean(axis=1, skipna=True)

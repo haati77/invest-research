@@ -96,7 +96,7 @@ def test_budget_exceeded_stops_failure_guard_immediately():
     assert g.tripped and "Tageslimit" in g.message()
     h = FailureGuard(2)
     h.failed(LLMUnavailable("x"))
-    assert not h.tripped                                   # normale Ausfaelle brauchen zwei in Folge
+    assert not h.tripped                                   # normale Ausfälle brauchen zwei in Folge
     assert issubclass(LLMBudgetExceeded, LLMUnavailable) and issubclass(LLMUnavailable, LLMError)
 
 

@@ -1,4 +1,4 @@
-"""Veraenderungserkennung: Kennzahlensprung, Kursereignis, Textaenderung -> Events (Alerts).
+"""Veränderungserkennung: Kennzahlensprung, Kursereignis, Textänderung -> Events (Alerts).
 
 Alle Schwellen stehen hier an einer Stelle. Jedes Ereignis hat einen dedupe_key, damit ein
 erneuter Lauf nichts doppelt meldet. Zahlen in Titeln stammen aus dem Code, nie von der KI.
@@ -27,13 +27,13 @@ DIFF_SECTION = "risks_diff"
 
 @dataclass(frozen=True)
 class Rule:
-    unit: str                 # "pp" = Prozentpunkte-Aenderung einer Quote, "x" = Aenderung eines Faktors
+    unit: str                 # "pp" = Prozentpunkte-Änderung einer Quote, "x" = Änderung eines Faktors
     medium: float
     high: float
-    sign_flip: bool = False   # Wechsel ins Negative / zurueck ins Positive melden
+    sign_flip: bool = False   # Wechsel ins Negative / zurück ins Positive melden
 
 
-# Vergleich: letzte 12 Monate (TTM) gegen dieselben 12 Monate ein Jahr frueher
+# Vergleich: letzte 12 Monate (TTM) gegen dieselben 12 Monate ein Jahr früher
 METRIC_RULES: dict[str, Rule] = {
     "gross_margin": Rule("pp", 3, 6),
     "operating_margin": Rule("pp", 3, 6, sign_flip=True),
@@ -45,14 +45,14 @@ METRIC_RULES: dict[str, Rule] = {
 }
 PRICE_MOVE_MEDIUM = 0.07   # Tagesbewegung ab 7 % -> mittel
 PRICE_MOVE_HIGH = 0.12     # ab 12 % -> hoch
-PRICE_LOOKBACK_DAYS = 5    # so viele letzte Handelstage werden geprueft (verpasste Laeufe)
-TEXT_MIN_ADDED_CHARS = 800  # darunter gilt die Risikofaktoren-Aenderung als unerheblich
-STALE_DAYS = 90  # Kennzahlenmeldungen zu aelteren Stichtagen sind keine frischen Nachrichten (-> gelesen)
+PRICE_LOOKBACK_DAYS = 5    # so viele letzte Handelstage werden geprüft (verpasste Läufe)
+TEXT_MIN_ADDED_CHARS = 800  # darunter gilt die Risikofaktoren-Änderung als unerheblich
+STALE_DAYS = 90  # Kennzahlenmeldungen zu älteren Stichtagen sind keine frischen Nachrichten (-> gelesen)
 
 
 def add_event(session: Session, company: Company, *, kind: str, severity: int, title: str,
               detail: str | None, key: str, seen: bool = False) -> bool:
-    """Legt ein Ereignis an, falls der Schluessel neu ist. True = neu angelegt."""
+    """Legt ein Ereignis an, falls der Schlüssel neu ist. True = neu angelegt."""
     exists = session.scalar(select(Event.id).where(Event.company_id == company.id, Event.dedupe_key == key))
     if exists:
         return False
@@ -118,11 +118,11 @@ def detect_metric_changes(session: Session, company: Company) -> int:
         suffix = {"flip_neg": " (ins Negative gedreht)", "flip_pos": " (wieder positiv)",
                   "change": f" ({delta:+.1f}{unit}, {'besser' if improved else 'schlechter'})"}[art]
         title = f"{label}: {move}{suffix}"
-        detail = (f"Letzte 12 Monate bis {now_end} gegenueber den 12 Monaten bis {prev_end}. "
+        detail = (f"Letzte 12 Monate bis {now_end} gegenüber den 12 Monaten bis {prev_end}. "
                   f"Berechnet aus XBRL-Kennzahlen, keine KI-Aussage.")
         stale = (date.today() - now_end).days > STALE_DAYS
         if stale:
-            detail += f" Stichtag liegt mehr als {STALE_DAYS} Tage zurueck: automatisch als gelesen markiert."
+            detail += f" Stichtag liegt mehr als {STALE_DAYS} Tage zurück: automatisch als gelesen markiert."
         created += add_event(session, company, kind="metric_change", severity=severity, title=title,
                              detail=detail, key=f"metric:{name}:TTM:{now_end}", seen=stale)
     return created
@@ -145,13 +145,13 @@ def detect_price_moves(session: Session, company: Company) -> int:
         created += add_event(
             session, company, kind="price_move", severity=severity,
             title=f"Kurs {move * 100:+.1f}% am {day} ({prev_close:.2f} -> {close:.2f} $)",
-            detail="Tagesbewegung gegenueber dem vorigen Handelstag; Grund nicht ermittelt.",
+            detail="Tagesbewegung gegenüber dem vorigen Handelstag; Grund nicht ermittelt.",
             key=f"price:{day}")
     return created
 
 
 def detect_all_numeric(session: Session, only_ticker: str | None = None) -> dict[str, int]:
-    """Kennzahlen- und Kursereignisse fuer die Watchlist (ohne Netz, ohne KI)."""
+    """Kennzahlen- und Kursereignisse für die Watchlist (ohne Netz, ohne KI)."""
     out = {"metric_change": 0, "price_move": 0}
     for c in session.scalars(select(Company).where(Company.on_watchlist.is_(True)).order_by(Company.ticker)):
         if only_ticker and c.ticker != only_ticker.upper():
@@ -162,11 +162,11 @@ def detect_all_numeric(session: Session, only_ticker: str | None = None) -> dict
     return out
 
 
-# ------------------------------------------------------------------ Textaenderung (Risikofaktoren)
+# ------------------------------------------------------------------ Textänderung (Risikofaktoren)
 @dataclass
 class TextChangeReport:
     ticker: str
-    status: str   # neu | uebersprungen | keine Aenderung | FEHLER: ...
+    status: str   # neu | übersprungen | keine Änderung | FEHLER: ...
     n_added: int = 0
     n_removed: int = 0
     n_verified: int = 0
@@ -183,8 +183,8 @@ def detect_text_changes(session: Session, llm: LLMClient | None, edgar: EdgarCli
                         ) -> list[TextChangeReport]:
     """Vergleicht die Risikofaktoren des neuesten 10-K mit dem des Vorjahres.
 
-    Der Absatzvergleich ist deterministisch. Mit LLM werden die neuen Absaetze zusammengefasst und
-    nach Wesentlichkeit geordnet (Zitate werden gegen den NEUEN Text geprueft). Ohne LLM bleibt es bei
+    Der Absatzvergleich ist deterministisch. Mit LLM werden die neuen Absätze zusammengefasst und
+    nach Wesentlichkeit geordnet (Zitate werden gegen den NEUEN Text geprüft). Ohne LLM bleibt es bei
     der Absatzstatistik. Ergebnis je (neues 10-K, Prompt-Version) einmal gespeichert.
     """
     reports, calls = [], 0
@@ -196,7 +196,7 @@ def detect_text_changes(session: Session, llm: LLMClient | None, edgar: EdgarCli
             continue
         pair = _two_latest_10k(session, company)
         if not pair:
-            reports.append(TextChangeReport(company.ticker, "uebersprungen (weniger als zwei 10-K)"))
+            reports.append(TextChangeReport(company.ticker, "übersprungen (weniger als zwei 10-K)"))
             continue
         new, old = pair
         existing = session.scalar(select(Analysis).where(
@@ -204,7 +204,7 @@ def detect_text_changes(session: Session, llm: LLMClient | None, edgar: EdgarCli
             Analysis.prompt_version == DIFF_VERSION))
         want_ai = llm is not None
         if existing and not force and (existing.model != "none" or not want_ai):
-            reports.append(TextChangeReport(company.ticker, "uebersprungen (schon vorhanden)",
+            reports.append(TextChangeReport(company.ticker, "übersprungen (schon vorhanden)",
                                             existing.content["diff_stats"]["n_added"]))
             continue
         try:
@@ -240,7 +240,7 @@ def detect_text_changes(session: Session, llm: LLMClient | None, edgar: EdgarCli
                                  model=model, content=content))
             created = _text_change_event(session, company, new, old, content)
             session.commit()
-            reports.append(TextChangeReport(company.ticker, "neu" if created else "keine Aenderung",
+            reports.append(TextChangeReport(company.ticker, "neu" if created else "keine Änderung",
                                             stats["n_added"], stats["n_removed"], content["n_verified"]))
         except Exception as exc:
             session.rollback()
@@ -248,7 +248,7 @@ def detect_text_changes(session: Session, llm: LLMClient | None, edgar: EdgarCli
             reports.append(TextChangeReport(company.ticker, f"FEHLER: {exc}"))
             guard.failed(exc)
             if guard.tripped and llm is not None:
-                # Rest nur mit Absatzstatistik; spaeter mit KI aufwertbar (model='none')
+                # Rest nur mit Absatzstatistik; später mit KI aufwertbar (model='none')
                 reports.append(TextChangeReport("*", f"FEHLER: {guard.message()}"))
                 llm = None
     return reports
@@ -265,8 +265,8 @@ def _text_change_event(session: Session, company: Company, new: Filing, old: Fil
     else:
         severity = 2 if stats["added_chars"] >= 5000 else 1
         detail = ("Absatzvergleich ohne KI-Einordnung. Mit 'watch' ohne --no-ai erscheint eine "
-                  "Zusammenfassung der wesentlichen Aenderungen.")
-    title = (f"Risikofaktoren geaendert: {stats['n_added']} neue/geaenderte Absaetze, "
+                  "Zusammenfassung der wesentlichen Änderungen.")
+    title = (f"Risikofaktoren geändert: {stats['n_added']} neue/geänderte Absätze, "
              f"{stats['n_removed']} entfallen (10-K {new.filed_at} vs. {old.filed_at})")
     key = f"textdiff:risks:{new.accession_number}"
     existing = session.scalar(select(Event).where(Event.company_id == company.id, Event.dedupe_key == key))

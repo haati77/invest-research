@@ -1,11 +1,11 @@
-"""Fragen an die Daten in natuerlicher Sprache.
+"""Fragen an die Daten in natürlicher Sprache.
 
-Die KI beantwortet nichts selbst und schreibt kein SQL. Sie uebersetzt die Frage in einen
-strukturierten Abfrageplan ueber eine feste Spaltenliste (Whitelist). Der Code prueft den Plan,
-fuehrt ihn auf der Datenbank aus und zeigt "Verstanden als ..." aus dem Plan selbst (nicht aus
-KI-Text), damit jede Antwort nachvollziehbar ist. Zahlen stammen ausschliesslich aus der Datenbank.
+Die KI beantwortet nichts selbst und schreibt kein SQL. Sie übersetzt die Frage in einen
+strukturierten Abfrageplan über eine feste Spaltenliste (Whitelist). Der Code prüft den Plan,
+führt ihn auf der Datenbank aus und zeigt "Verstanden als ..." aus dem Plan selbst (nicht aus
+KI-Text), damit jede Antwort nachvollziehbar ist. Zahlen stammen ausschließlich aus der Datenbank.
 
-Fragen zu Berichtsinhalten ("Welche Risiken nennt MSFT?") liefern die bereits zitatgeprueften
+Fragen zu Berichtsinhalten ("Welche Risiken nennt MSFT?") liefern die bereits zitatgeprüften
 Aussagen aus Schritt 5, keine neue KI-Formulierung.
 """
 from __future__ import annotations
@@ -30,13 +30,13 @@ from .peers import add_percentiles, overall_score, snapshot
 
 log = logging.getLogger(__name__)
 
-TEXT_SECTIONS = {"business": "Geschaeftsmodell", "risks": "Risiken", "risks_diff": "Neue Risiken gegenueber dem Vorjahr",
+TEXT_SECTIONS = {"business": "Geschäftsmodell", "risks": "Risiken", "risks_diff": "Neue Risiken gegenüber dem Vorjahr",
                  "mdna": "Management-Analyse (MD&A)"}
 MAX_ROWS = 50
 
 
 class PlanError(ValueError):
-    """Der Plan der KI ist unzulaessig (unbekannte Spalte, falscher Typ ...)."""
+    """Der Plan der KI ist unzulässig (unbekannte Spalte, falscher Typ ...)."""
 
 
 @dataclass(frozen=True)
@@ -50,22 +50,22 @@ def build_catalog() -> dict[str, Col]:
     cat: dict[str, Col] = {
         "name": Col("Name", "text"), "sector": Col("Branche", "text", "exakte Branchenbezeichnung"),
         "price": Col("Kurs", "price", "letzter Schlusskurs in USD"),
-        "chg_1m": Col("Kurs 1 Monat", "pct", "Kursaenderung 30 Tage"),
+        "chg_1m": Col("Kurs 1 Monat", "pct", "Kursänderung 30 Tage"),
         "chg_ytd": Col("Kurs seit Jahresbeginn", "pct"), "chg_1y": Col("Kurs 1 Jahr", "pct"),
         "pos_52w": Col("Lage im 52-Wochen-Bereich", "pct", "0 = Jahrestief, 1 = Jahreshoch"),
         "market_cap": Col("Marktkapitalisierung", "usd"), "pe": Col("KGV", "x", "Kurs/Gewinn, 12 Monate"),
         "ps": Col("KUV", "x", "Kurs/Umsatz, 12 Monate"), "p_fcf": Col("Kurs/FCF", "x", "Kurs/freier Cashflow"),
         "score": Col("Branchen-Score", "score", "mittleres Perzentil in der Branche, 0..1, nur Orientierung"),
     }
-    for basis, suffix in (("ttm", "letzte 12 Monate"), ("fy", "letztes Geschaeftsjahr")):
+    for basis, suffix in (("ttm", "letzte 12 Monate"), ("fy", "letztes Geschäftsjahr")):
         for name, (label, _, kind) in RATIOS.items():
             cat[f"{basis}_{name}"] = Col(f"{label} ({suffix})", "pct" if kind == "pct" else "x")
         cat[f"{basis}_revenue"] = Col(f"Umsatz ({suffix})", "usd")
         cat[f"{basis}_net_income"] = Col(f"Nettogewinn ({suffix})", "usd")
         cat[f"{basis}_fcf"] = Col(f"Freier Cashflow ({suffix})", "usd")
     for name, (label, _, kind) in RATIOS.items():
-        cat[f"chg_{name}"] = Col(f"Veraenderung {label} ggue. Vorjahr", "pp" if kind == "pct" else "x",
-                                 "letzte 12 Monate minus dieselben 12 Monate ein Jahr frueher; positiv = gestiegen")
+        cat[f"chg_{name}"] = Col(f"Veränderung {label} ggü. Vorjahr", "pp" if kind == "pct" else "x",
+                                 "letzte 12 Monate minus dieselben 12 Monate ein Jahr früher; positiv = gestiegen")
     return cat
 
 
@@ -167,7 +167,7 @@ def validate_plan(plan: Plan, tickers: set[str]) -> Plan:
     return plan
 
 
-# ------------------------------------------------------------------ Formatierung und Ausfuehrung
+# ------------------------------------------------------------------ Formatierung und Ausführung
 def fmt(kind: str, v) -> str:
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return "-"
@@ -186,7 +186,7 @@ def fmt(kind: str, v) -> str:
     return str(v)
 
 
-OP_TEXT = {">": "ueber", ">=": "mindestens", "<": "unter", "<=": "hoechstens", "==": "gleich", "!=": "ungleich"}
+OP_TEXT = {">": "über", ">=": "mindestens", "<": "unter", "<=": "höchstens", "==": "gleich", "!=": "ungleich"}
 
 
 @dataclass
@@ -208,22 +208,22 @@ def _cond_text(c: Cond) -> str:
 def run_plan(df: pd.DataFrame, plan: Plan, session: Session | None = None) -> Result:
     if plan.kind == "unsupported":
         return Result(plan, "Die Frage kann mit den vorhandenen Daten nicht beantwortet werden.",
-                      notes=[plan.note or "Keine Begruendung angegeben."])
+                      notes=[plan.note or "Keine Begründung angegeben."])
     if plan.kind == "text":
         ticker, section = plan.tickers[0], plan.text_section
         rows = [r for r in (queries.latest_analyses(session, ticker) if session else []) if r["section"] == section]
         label = TEXT_SECTIONS[section]
         if not rows:
             return Result(plan, f"{label} laut Bericht: {ticker}",
-                          notes=[f"Keine Analyse fuer {ticker}/{label}. Erst: python -m invest_research analyze "
+                          notes=[f"Keine Analyse für {ticker}/{label}. Erst: python -m invest_research analyze "
                                  f"--ticker {ticker}" + (" bzw. watch" if section == "risks_diff" else "")])
         r = rows[0]
         items = sorted((i for i in r["content"]["items"] if i["verified"]), key=lambda i: -i["importance"])
         return Result(plan, f"{label} laut {r['form_type']} vom {r['filed_at']}: {ticker}",
                       text={"form_type": r["form_type"], "filed_at": str(r["filed_at"]), "url": r["url"],
                             "summary": r["content"]["summary"], "items": items},
-                      notes=["Zusammenfassung ist KI-Text (nicht zitatgeprueft); die Aussagen darunter haben ein "
-                             "geprueftes Originalzitat."])
+                      notes=["Zusammenfassung ist KI-Text (nicht zitatgeprüft); die Aussagen darunter haben ein "
+                             "geprüftes Originalzitat."])
 
     notes: list[str] = []
     work = df.copy()
@@ -239,7 +239,7 @@ def run_plan(df: pd.DataFrame, plan: Plan, session: Session | None = None) -> Re
         else:
             missing = work.index[series.isna()].tolist()
             if missing:
-                notes.append(f"Ohne Daten fuer '{col.label}' ausgeschlossen: {', '.join(missing)}")
+                notes.append(f"Ohne Daten für '{col.label}' ausgeschlossen: {', '.join(missing)}")
             v = float(c.value)
             mask = {">": series > v, ">=": series >= v, "<": series < v, "<=": series <= v,
                     "==": series == v, "!=": series != v}[c.op] & series.notna()
@@ -255,7 +255,7 @@ def run_plan(df: pd.DataFrame, plan: Plan, session: Session | None = None) -> Re
         notes.append(f"{total} Treffer, " + ("der erste wird" if plan.limit == 1 else f"die ersten {plan.limit} werden")
                      + " angezeigt.")
     if work.empty:
-        notes.append("Kein Unternehmen erfuellt die Bedingungen.")
+        notes.append("Kein Unternehmen erfüllt die Bedingungen.")
     raw = work[shown]
     table = raw.copy().astype(object)
     for col in shown:
@@ -266,11 +266,11 @@ def run_plan(df: pd.DataFrame, plan: Plan, session: Session | None = None) -> Re
     if plan.tickers:
         parts.append("nur " + ", ".join(plan.tickers))
     if conditions:
-        parts.append("Bedingungen (alle muessen zutreffen): " + " UND ".join(conditions))
+        parts.append("Bedingungen (alle müssen zutreffen): " + " UND ".join(conditions))
     if plan.sort_by:
         parts.append(f"sortiert nach {CATALOG[plan.sort_by].label}, "
                      + ("absteigend" if plan.descending else "aufsteigend"))
-    parts.append(f"hoechstens {plan.limit} " + ("Zeile" if plan.limit == 1 else "Zeilen"))
+    parts.append(f"höchstens {plan.limit} " + ("Zeile" if plan.limit == 1 else "Zeilen"))
     return Result(plan, "; ".join(parts), table=table, raw=raw, notes=notes)
 
 
@@ -294,21 +294,21 @@ Rules:
 - Use ONLY column keys, tickers and sector names from the lists below.
 - Percentages and ratios are FRACTIONS: 30 % -> 0.30. Changes in percentage points are fractions too: "3 Prozentpunkte" -> 0.03. \
 Columns of type x are plain multiples (1.5 = 1.5x). Money is absolute USD: "5 Mrd." -> 5000000000.
-- "Veraenderung ... ggue. Vorjahr" columns (chg_*): "sinkende Marge" -> filter chg_<margin> < 0; "steigende Schulden" -> chg_debt_to_equity > 0.
-- Without a stated period, use the trailing-twelve-months columns (ttm_*). Use fy_* only if the question says Geschaeftsjahr.
-- "Teuer"/"guenstig" refer to pe, ps or p_fcf. Prefer sorting over inventing thresholds when the question names none.
+- "Veränderung ... ggü. Vorjahr" columns (chg_*): "sinkende Marge" -> filter chg_<margin> < 0; "steigende Schulden" -> chg_debt_to_equity > 0.
+- Without a stated period, use the trailing-twelve-months columns (ttm_*). Use fy_* only if the question says Geschäftsjahr.
+- "Teuer"/"günstig" refer to pe, ps or p_fcf. Prefer sorting over inventing thresholds when the question names none.
 - kind "text": questions about what a report says (risks, business model, management view, new risks versus last year). Exactly one ticker.
 - kind "unsupported": forecasts, buy/sell advice, companies or data not in the lists, anything else.
 
 Examples:
-Q: Welche Software-Titel haben eine Nettomarge ueber 30 % und sinkende Schulden?
+Q: Welche Software-Titel haben eine Nettomarge über 30 % und sinkende Schulden?
 A: {"kind":"table","columns":["ttm_net_margin","chg_debt_to_equity"],"filters":[{"column":"sector","op":"==","value":"Software"},{"column":"ttm_net_margin","op":">","value":0.30},{"column":"chg_debt_to_equity","op":"<","value":0}],"sort_by":"ttm_net_margin","descending":true,"limit":10,"tickers":[],"text_section":null,"note":null}
 Q: Welche drei Titel sind am billigsten gemessen am KGV?
 A: {"kind":"table","columns":["pe","price"],"filters":[],"sort_by":"pe","descending":false,"limit":3,"tickers":[],"text_section":null,"note":null}
 Q: Welche Risiken nennt Microsoft?
 A: {"kind":"text","columns":[],"filters":[],"sort_by":null,"descending":true,"limit":10,"tickers":["MSFT"],"text_section":"risks","note":null}
-Q: Wird NVDA naechstes Jahr steigen?
-A: {"kind":"unsupported","columns":[],"filters":[],"sort_by":null,"descending":true,"limit":10,"tickers":[],"text_section":null,"note":"Prognosen und Kursprognosen sind nicht moeglich."}"""
+Q: Wird NVDA nächstes Jahr steigen?
+A: {"kind":"unsupported","columns":[],"filters":[],"sort_by":null,"descending":true,"limit":10,"tickers":[],"text_section":null,"note":"Prognosen und Kursprognosen sind nicht möglich."}"""
 
 
 def build_prompt(df: pd.DataFrame, question: str, today: date | None = None) -> str:
@@ -320,7 +320,7 @@ def build_prompt(df: pd.DataFrame, question: str, today: date | None = None) -> 
 
 
 def plan_question(llm: LLMClient, df: pd.DataFrame, question: str) -> Plan:
-    """Fragt die KI nach einem Plan; bei ungueltigem Plan genau ein Wiederholungsversuch mit Fehlerhinweis."""
+    """Fragt die KI nach einem Plan; bei ungültigem Plan genau ein Wiederholungsversuch mit Fehlerhinweis."""
     prompt, error = build_prompt(df, question), ""
     tickers = set(df.index)
     for attempt in range(2):
@@ -330,8 +330,8 @@ def plan_question(llm: LLMClient, df: pd.DataFrame, question: str) -> Plan:
             return validate_plan(Plan.model_validate(extract_json(resp.text)), tickers)
         except (ValueError, ValidationError) as exc:  # PlanError ist ein ValueError
             error = str(exc)[:200]
-            log.warning("Ungueltiger Abfrageplan (%s), Versuch %d", error, attempt + 1)
-    raise LLMError(f"Die KI lieferte keinen gueltigen Abfrageplan: {error}")
+            log.warning("Ungültiger Abfrageplan (%s), Versuch %d", error, attempt + 1)
+    raise LLMError(f"Die KI lieferte keinen gültigen Abfrageplan: {error}")
 
 
 def ask(session: Session, llm: LLMClient, question: str) -> Result:

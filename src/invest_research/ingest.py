@@ -1,4 +1,4 @@
-"""Laedt Filings und Kennzahlen von EDGAR in die Datenbank (idempotent)."""
+"""Lädt Filings und Kennzahlen von EDGAR in die Datenbank (idempotent)."""
 from __future__ import annotations
 
 import logging
@@ -14,7 +14,7 @@ from .models import Company, Event, Filing, Metric
 log = logging.getLogger(__name__)
 
 TRACKED_FORMS = {"10-K", "10-K/A", "10-Q", "10-Q/A", "8-K"}
-# Wichtigkeit neuer Filings fuer Alerts: Jahres-/Quartalsberichte hoeher als 8-K
+# Wichtigkeit neuer Filings für Alerts: Jahres-/Quartalsberichte höher als 8-K
 FORM_SEVERITY = {"10-K": 3, "10-K/A": 2, "10-Q": 2, "10-Q/A": 1, "8-K": 1}
 
 
@@ -32,7 +32,7 @@ def ingest_company(session: Session, client: EdgarClient, company: Company,
     if not company.cik:
         cik = (ticker_map or {}).get(company.ticker)
         if not cik:
-            raise ValueError(f"Kein CIK fuer {company.ticker}: in watchlist.yaml 'cik' eintragen.")
+            raise ValueError(f"Kein CIK für {company.ticker}: in watchlist.yaml 'cik' eintragen.")
         company.cik = cik
 
     subs = client.submissions(company.cik)
@@ -63,7 +63,7 @@ def ingest_company(session: Session, client: EdgarClient, company: Company,
             result.metrics_written += 1
         elif m.value != r.value or m.source != "xbrl":
             m.value = r.value
-            m.source = "xbrl"  # echter Rohwert verdraengt einen abgeleiteten
+            m.source = "xbrl"  # echter Rohwert verdrängt einen abgeleiteten
             result.metrics_written += 1
     session.commit()
     return result
@@ -80,7 +80,7 @@ def ingest_watchlist(session: Session, client: EdgarClient, *, since_year: int,
     for c in companies:
         try:
             results.append(ingest_company(session, client, c, since_year=since_year, ticker_map=ticker_map))
-        except Exception as exc:  # ein Fehler soll die uebrigen Titel nicht stoppen
+        except Exception as exc:  # ein Fehler soll die übrigen Titel nicht stoppen
             session.rollback()
             log.exception("Ingest fehlgeschlagen: %s", c.ticker)
             results.append(IngestResult(c.ticker, error=str(exc)))

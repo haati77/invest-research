@@ -119,7 +119,7 @@ def test_price_rise_is_demoted_and_small_moves_ignored(session):
 
 
 def test_old_price_moves_outside_lookback_are_ignored(session):
-    put_prices(session, [100, 70, 70, 70, 70, 70, 70, 70, 70, 70])           # Absturz liegt > 5 Tage zurueck
+    put_prices(session, [100, 70, 70, 70, 70, 70, 70, 70, 70, 70])           # Absturz liegt > 5 Tage zurück
     assert detect_price_moves(session, comp(session)) == 0
 
 
@@ -133,14 +133,14 @@ def test_detect_all_numeric_counts(session):
 
 # ------------------------------------------------------------ Textvergleich
 def para(i, n=25):
-    return " ".join(f"term{i}x{j}" for j in range(n))  # eindeutige Woerter je Absatz, ~200 Zeichen
+    return " ".join(f"term{i}x{j}" for j in range(n))  # eindeutige Wörter je Absatz, ~200 Zeichen
 
 
 def test_diff_sections_ignores_reordering_and_short_lines_but_finds_changes():
     old = "\n".join(para(i) for i in range(10))
     reordered = "\n".join(para(i) for i in reversed(range(10)))
     assert diff_sections(old, reordered).added == [] and diff_sections(old, reordered).removed == []
-    new = "\n".join([para(i) for i in range(1, 10)] + [para(99), "Kurze Ueberschrift"])
+    new = "\n".join([para(i) for i in range(1, 10)] + [para(99), "Kurze Überschrift"])
     d = diff_sections(old, new)
     assert d.added == [para(99)] and d.removed == [para(0)]
     assert d.n_old == 10 and d.n_new == 10 and len(paragraphs("kurz\n" + para(1))) == 1
@@ -149,10 +149,10 @@ def test_diff_sections_ignores_reordering_and_short_lines_but_finds_changes():
 def test_diff_sections_partial_rewording_counts_as_changed():
     old = para(1, 40)
     reworded = " ".join(f"term1x{j}" for j in range(10)) + " " + " ".join(f"new{j}word" for j in range(30))
-    assert len(diff_sections(old, reworded).added) == 1                      # unter 50 % Wortfolgen uebernommen
+    assert len(diff_sections(old, reworded).added) == 1                      # unter 50 % Wortfolgen übernommen
 
 
-# ------------------------------------------------------------ Textvergleich ueber Berichte
+# ------------------------------------------------------------ Textvergleich über Berichte
 def risk_doc(paras):
     return ("<html><body><div>ITEM 1. BUSINESS</div><p>" + "x " * 10 + "</p>"
             "<div>ITEM 1A. RISK FACTORS</div>" + "".join(f"<p>{p}</p>" for p in paras) +
@@ -217,7 +217,7 @@ def test_text_change_with_ai_creates_verified_event(tsession):
     ev = events(tsession)[0]
     assert ev.kind == "text_change" and ev.severity == 3 and "Neues Risiko" in ev.detail
     assert "Erfunden" not in ev.detail                                     # nicht verifizierte Aussage taucht nicht auf
-    assert "5 neue/geaenderte" in ev.title and "2 entfallen" in ev.title
+    assert "5 neue/geänderte" in ev.title and "2 entfallen" in ev.title
 
 
 def test_text_change_is_idempotent_and_skips_downloads(tsession):
@@ -225,7 +225,7 @@ def test_text_change_is_idempotent_and_skips_downloads(tsession):
     detect_text_changes(tsession, llm, ed)
     n = ed.downloads
     r = detect_text_changes(tsession, llm, ed)[0]
-    assert r.status.startswith("uebersprungen") and llm.calls == 1 and ed.downloads == n and len(events(tsession)) == 1
+    assert r.status.startswith("übersprungen") and llm.calls == 1 and ed.downloads == n and len(events(tsession)) == 1
 
 
 def test_no_ai_then_ai_upgrades_same_event(tsession):
@@ -233,10 +233,10 @@ def test_no_ai_then_ai_upgrades_same_event(tsession):
     ev = events(tsession)[0]
     assert ev.severity == 1 and "ohne KI" in ev.detail
     assert tsession.scalar(select(Analysis).where(Analysis.section_key == DIFF_SECTION)).model == "none"
-    detect_text_changes(tsession, None, edgar())                           # erneut ohne KI: uebersprungen
+    detect_text_changes(tsession, None, edgar())                           # erneut ohne KI: übersprungen
     assert len(events(tsession)) == 1
     llm = FakeLLM(llm_reply())
-    assert detect_text_changes(tsession, llm, edgar())[0].status != "uebersprungen"
+    assert detect_text_changes(tsession, llm, edgar())[0].status != "übersprungen"
     assert llm.calls == 1 and len(events(tsession)) == 1                   # kein zweites Ereignis
     assert events(tsession)[0].severity == 3 and "Neues Risiko" in events(tsession)[0].detail
     assert len(tsession.scalars(select(Analysis).where(Analysis.section_key == DIFF_SECTION)).all()) == 1
@@ -246,7 +246,7 @@ def test_small_change_makes_no_event(tsession):
     new = OLD_PARAS[:-1] + [para(200, 10)]                                 # nur ~80 Zeichen neu, zu kurz
     assert len(paragraphs(para(200, 10))) == 0
     r = detect_text_changes(tsession, FakeLLM(llm_reply()), edgar(new))[0]
-    assert r.status == "keine Aenderung" and events(tsession) == []
+    assert r.status == "keine Änderung" and events(tsession) == []
 
 
 def test_text_change_needs_two_10k_and_isolates_errors(tsession):
@@ -263,7 +263,7 @@ def test_max_calls_limits_ai_but_still_records_paragraph_stats(tsession):
     llm = FakeLLM(llm_reply())
     r = detect_text_changes(tsession, llm, edgar(), max_calls=0)[0]
     assert llm.calls == 0 and r.status == "neu"
-    assert tsession.scalar(select(Analysis)).model == "none"               # spaeter mit KI aufwertbar
+    assert tsession.scalar(select(Analysis)).model == "none"               # später mit KI aufwertbar
 
 
 # ------------------------------------------------------------ Profilvergleich, Migration, Dashboard

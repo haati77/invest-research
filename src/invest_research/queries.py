@@ -1,4 +1,4 @@
-"""Lesende Abfragen fuer das Dashboard (kein Streamlit-Code, daher testbar)."""
+"""Lesende Abfragen für das Dashboard (kein Streamlit-Code, daher testbar)."""
 from __future__ import annotations
 
 import pandas as pd
@@ -21,7 +21,7 @@ def price_history(session: Session, company_id: int) -> pd.DataFrame:
 
 
 def _ttm_values(session: Session, company_id: int) -> dict[str, float]:
-    """TTM-Werte des juengsten TTM-Stichtags (Umsatz-Stichtag) plus juengste Aktienzahl."""
+    """TTM-Werte des jüngsten TTM-Stichtags (Umsatz-Stichtag) plus jüngste Aktienzahl."""
     ends = list(session.scalars(select(Metric.period_end).where(
         Metric.company_id == company_id, Metric.name == "revenue", Metric.period_type == "TTM")))
     out: dict[str, float] = {}
@@ -63,12 +63,14 @@ def overview(session: Session) -> pd.DataFrame:
             "p_fcf": p_fcf_ratio(cap, t.get("fcf")),
             "spark": [p for _, p in year[-250:]],
         })
-    return pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
+    out = pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
+    out.index.name = "Ticker"
+    return out
 
 
 def annual_series(session: Session, company_id: int, names: list[str],
                   ptype: str = "FY") -> pd.DataFrame:
-    """Lange Tabelle (period_end, name, value) fuer Diagramme."""
+    """Lange Tabelle (period_end, name, value) für Diagramme."""
     rows = session.execute(select(Metric.period_end, Metric.name, Metric.value).where(
         Metric.company_id == company_id, Metric.period_type == ptype,
         Metric.name.in_(names), Metric.value.is_not(None)).order_by(Metric.period_end)).all()
@@ -129,7 +131,7 @@ def profile_versions(session: Session, ticker: str) -> list[dict]:
 
 
 def data_status(session: Session) -> pd.DataFrame:
-    """Datenstand je Watchlist-Titel: Aktualitaet von Kurs, Bericht, Profil; Zahl der Analysen und offenen Alerts."""
+    """Datenstand je Watchlist-Titel: Aktualität von Kurs, Bericht, Profil; Zahl der Analysen und offenen Alerts."""
     from sqlalchemy import func
     rows = []
     for c in watchlist(session):
@@ -145,4 +147,6 @@ def data_status(session: Session) -> pd.DataFrame:
         rows.append({"ticker": c.ticker, "last_price": last_price,
                      "last_report": f"{filing[0]} {filing[1]}" if filing else None,
                      "last_profile": last_profile, "analyses": n_an, "open_alerts": n_ev})
-    return pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
+    out = pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
+    out.index.name = "Ticker"
+    return out

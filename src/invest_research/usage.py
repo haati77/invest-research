@@ -1,8 +1,8 @@
-"""Nutzungsprotokoll und Limits fuer KI-Aufrufe.
+"""Nutzungsprotokoll und Limits für KI-Aufrufe.
 
-`MeteredLLM` umhuellt einen LLMClient: prueft vor jedem Aufruf das Budget, misst Dauer und
-Token und schreibt jeden Aufruf (auch Fehlschlaege) in `llm_calls`. Das Protokoll geht ueber eine
-eigene kurze Datenbankverbindung, damit laufende Transaktionen der Auswertungen unberuehrt bleiben.
+`MeteredLLM` umhüllt einen LLMClient: prüft vor jedem Aufruf das Budget, misst Dauer und
+Token und schreibt jeden Aufruf (auch Fehlschläge) in `llm_calls`. Das Protokoll geht über eine
+eigene kurze Datenbankverbindung, damit laufende Transaktionen der Auswertungen unberührt bleiben.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class Budget:
 
 
 def day_start(now: datetime | None = None) -> datetime:
-    """Lokaler Tagesbeginn (so wie der Nutzer 'heute' versteht), als UTC fuer die Abfrage."""
+    """Lokaler Tagesbeginn (so wie der Nutzer 'heute' versteht), als UTC für die Abfrage."""
     local = (now or datetime.now().astimezone()).replace(hour=0, minute=0, second=0, microsecond=0)
     return local.astimezone(timezone.utc).replace(tzinfo=None)
 
@@ -59,7 +59,7 @@ class MeteredLLM:
             if calls >= self._budget.max_calls_per_day:
                 raise LLMBudgetExceeded(
                     f"Tageslimit von {self._budget.max_calls_per_day} KI-Aufrufen erreicht "
-                    "(LLM_MAX_CALLS_PER_DAY in .env). Morgen geht es weiter, oder das Limit erhoehen.")
+                    "(LLM_MAX_CALLS_PER_DAY in .env). Morgen geht es weiter, oder das Limit erhöhen.")
             cap = self._budget.max_cost_per_month
             if cap is not None and _cost(s, month_start()) >= cap:
                 raise LLMBudgetExceeded(
@@ -77,7 +77,7 @@ class MeteredLLM:
             s.commit()
 
     def complete(self, system: str, prompt: str) -> LLMResponse:
-        self.check_budget()  # Limit-Verstoss wird NICHT als Aufruf protokolliert
+        self.check_budget()  # Limit-Verstoß wird NICHT als Aufruf protokolliert
         started = time.monotonic()
         try:
             resp = self._inner.complete(system, prompt)
@@ -89,7 +89,7 @@ class MeteredLLM:
 
 
 def usage_summary(session: Session, budget: Budget) -> dict:
-    """Kennzahlen fuer `usage` und die System-Seite."""
+    """Kennzahlen für `usage` und die System-Seite."""
     today, month = day_start(), month_start()
     out = {"calls_today": _count_ok(session, today), "max_calls_per_day": budget.max_calls_per_day,
            "cost_month": _cost(session, month), "max_cost_per_month": budget.max_cost_per_month}

@@ -27,7 +27,7 @@ def by_key(rows):
     return {(r.name, r.period_type, r.period_end): r.value for r in rows}
 
 
-# Geschaeftsjahr endet 31.12.2024; Quartale 31.03., 30.06., 30.09.
+# Geschäftsjahr endet 31.12.2024; Quartale 31.03., 30.06., 30.09.
 FY24, Q1, Q2, Q3 = date(2024, 12, 31), date(2024, 3, 31), date(2024, 6, 30), date(2024, 9, 30)
 
 
@@ -45,7 +45,7 @@ def test_cash_flow_quarters_from_cumulative_values():
     assert v[("operating_cash_flow", "Q", Q2)] == 15
     assert v[("operating_cash_flow", "Q", Q3)] == 20
     assert v[("operating_cash_flow", "Q", FY24)] == 25
-    assert v[("operating_cash_flow", "TTM", FY24)] == 70  # Q1..Q4 lueckenlos
+    assert v[("operating_cash_flow", "TTM", FY24)] == 70  # Q1..Q4 lückenlos
     assert derive_quarters_from_ytd([R("operating_cash_flow", 25, Q2, "H1")]) == []  # ohne Q1 nichts
 
 

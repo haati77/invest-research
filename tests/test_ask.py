@@ -43,7 +43,7 @@ def plan(**kw):
 TICKERS = {"AAA", "BBB", "CCC"}
 
 
-# ------------------------------------------------------------ Plan-Pruefung
+# ------------------------------------------------------------ Plan-Prüfung
 def test_validate_plan_rejects_unknown_columns_tickers_and_type_mismatch():
     with pytest.raises(PlanError, match="Unbekannte Spalte"):
         validate_plan(plan(columns=["geheim; DROP TABLE"]), TICKERS)
@@ -57,7 +57,7 @@ def test_validate_plan_rejects_unknown_columns_tickers_and_type_mismatch():
         validate_plan(plan(filters=[Cond(column="sector", op=">", value="Software")]), TICKERS)
     with pytest.raises(PlanError, match="genau einen Ticker"):
         validate_plan(plan(kind="text", tickers=["AAA", "BBB"], text_section="risks"), TICKERS)
-    assert validate_plan(plan(tickers=["aaa"]), TICKERS).tickers == ["AAA"]      # Gross-/Kleinschreibung egal
+    assert validate_plan(plan(tickers=["aaa"]), TICKERS).tickers == ["AAA"]      # Groß-/Kleinschreibung egal
     assert validate_plan(plan(kind="unsupported", note="nein"), TICKERS).kind == "unsupported"
 
 
@@ -65,13 +65,13 @@ def test_limit_is_clamped():
     assert plan(limit=9999).limit == 50 and plan(limit=0).limit == 1 and plan(limit="abc").limit == 10
 
 
-# ------------------------------------------------------------ Ausfuehrung
+# ------------------------------------------------------------ Ausführung
 def test_filters_combine_with_and_and_missing_data_is_reported_not_guessed():
     r = run_plan(frame(), plan(filters=[Cond(column="ttm_net_margin", op=">", value=0.05),
                                         Cond(column="chg_debt_to_equity", op=">", value=0)]))
     assert list(r.raw.index) == ["AAA"]                                   # BBB: keine Marge -> nicht geraten
     assert any("BBB" in n and "Nettomarge" in n for n in r.notes)
-    assert "UND" in r.interpreted and "ueber 5.0%" in r.interpreted and "ueber +0.0 Pp" not in r.interpreted
+    assert "UND" in r.interpreted and "über 5.0%" in r.interpreted and "über +0.0 Pp" not in r.interpreted
 
 
 def test_text_filter_sort_limit_and_overflow_note():
@@ -79,7 +79,7 @@ def test_text_filter_sort_limit_and_overflow_note():
                                descending=False, limit=1))
     assert list(r.raw.index) == ["BBB"]                                   # kleinstes KGV in Software
     assert any("Treffer" in n and "der erste wird" in n for n in r.notes)
-    assert "hoechstens 1 Zeile" in r.interpreted and "aufsteigend" in r.interpreted
+    assert "höchstens 1 Zeile" in r.interpreted and "aufsteigend" in r.interpreted
 
 
 def test_no_match_gives_empty_table_with_note():
@@ -95,8 +95,8 @@ def test_ticker_restriction_and_column_display_include_filter_columns():
 
 
 def test_unsupported_returns_reason():
-    r = run_plan(frame(), plan(kind="unsupported", note="Prognosen sind nicht moeglich."))
-    assert r.table is None and r.notes == ["Prognosen sind nicht moeglich."]
+    r = run_plan(frame(), plan(kind="unsupported", note="Prognosen sind nicht möglich."))
+    assert r.table is None and r.notes == ["Prognosen sind nicht möglich."]
 
 
 def test_formatting_kinds():
@@ -132,7 +132,7 @@ def test_plan_question_retries_once_with_error_hint_and_gives_up():
     llm = FakeLLM([{"kind": "table", "columns": ["erfunden"]}, good])
     p = plan_question(llm, frame(), "billig?")
     assert llm.calls == 2 and p.sort_by == "pe" and "Unbekannte Spalte" in llm.prompts[1][1]
-    with pytest.raises(LLMError, match="keinen gueltigen Abfrageplan"):
+    with pytest.raises(LLMError, match="keinen gültigen Abfrageplan"):
         plan_question(FakeLLM(["kein json"]), frame(), "x")
 
 
@@ -174,7 +174,7 @@ def test_ask_end_to_end_numbers_come_from_database_not_from_ai(session):
     expected = session.scalar(select(Metric.value).where(Metric.name == "net_margin", Metric.period_type == "TTM")
                               .order_by(Metric.period_end.desc()).limit(1))
     assert r.table.loc["MSFT", "Nettomarge (letzte 12 Monate)"] == f"{expected * 100:.1f}%"
-    assert "Nettomarge (letzte 12 Monate) ueber 20.0%" in r.interpreted
+    assert "Nettomarge (letzte 12 Monate) über 20.0%" in r.interpreted
 
 
 def test_text_question_returns_only_verified_items(session):

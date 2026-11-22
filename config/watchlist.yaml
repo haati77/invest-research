@@ -1,5 +1,5 @@
-# Start-Watchlist: 10 US-Unternehmen in 3 Branchen (fuer sinnvolle Peer-Vergleiche).
-# Aendere die Liste frei. 'cik' ist optional (sonst Aufloesung ueber die SEC-Tickerliste).
+# Start-Watchlist: 10 US-Unternehmen in 3 Branchen (für sinnvolle Peer-Vergleiche).
+# Ändere die Liste frei. 'cik' ist optional (sonst Auflösung über die SEC-Tickerliste).
 companies:
   - {ticker: MSFT, sector: Software, cik: "0000789019"}
   - {ticker: ADBE, sector: Software, cik: "0000796343"}
@@ -8,6 +8,6 @@ companies:
   - {ticker: NVDA, sector: Halbleiter, cik: "0001045810"}
   - {ticker: AMD,  sector: Halbleiter, cik: "0000002488"}
   - {ticker: AVGO, sector: Halbleiter, cik: "0001730168"}
-  - {ticker: KO,   sector: Konsumgueter, cik: "0000021344"}
-  - {ticker: PEP,  sector: Konsumgueter, cik: "0000077476"}
-  - {ticker: PG,   sector: Konsumgueter, cik: "0000080424"}
+  - {ticker: KO,   sector: Konsumgüter, cik: "0000021344"}
+  - {ticker: PEP,  sector: Konsumgüter, cik: "0000077476"}
+  - {ticker: PG,   sector: Konsumgüter, cik: "0000080424"}

@@ -1,4 +1,4 @@
-"""Bewertungskennzahlen. Reine Funktionen; ungueltige Basis (<=0) ergibt None statt Unsinn."""
+"""Bewertungskennzahlen. Reine Funktionen; ungültige Basis (<=0) ergibt None statt Unsinn."""
 from __future__ import annotations
 
 
@@ -10,7 +10,7 @@ def market_cap(price: float | None, shares: float | None) -> float | None:
 
 def pe_ratio(price: float | None, eps_ttm: float | None) -> float | None:
     if price is None or eps_ttm is None or eps_ttm <= 0:
-        return None  # bei Verlust ist ein KGV nicht aussagekraeftig
+        return None  # bei Verlust ist ein KGV nicht aussagekräftig
     return price / eps_ttm
 
 
@@ -27,8 +27,8 @@ def p_fcf_ratio(cap: float | None, fcf_ttm: float | None) -> float | None:
 
 
 def price_change(history: list[tuple], days: int | None = None, ytd: bool = False) -> float | None:
-    """history: aufsteigend sortierte (date, close). Aenderung gegenueber dem letzten Kurs
-    vor dem Stichtag (days zurueck bzw. Jahresanfang). None, wenn die Historie nicht reicht."""
+    """history: aufsteigend sortierte (date, close). Änderung gegenüber dem letzten Kurs
+    vor dem Stichtag (days zurück bzw. Jahresanfang). None, wenn die Historie nicht reicht."""
     if not history:
         return None
     last_day, last = history[-1]

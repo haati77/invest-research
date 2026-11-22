@@ -1,4 +1,4 @@
-"""Protokollierung: ausfuehrliche Logdatei (rotierend) plus knappe Konsolenausgabe."""
+"""Protokollierung: ausführliche Logdatei (rotierend) plus knappe Konsolenausgabe."""
 from __future__ import annotations
 
 import logging
@@ -30,7 +30,7 @@ def setup_logging(log_path: Path, *, verbose: bool = False) -> None:
 
 
 class Tee:
-    """Schreibt jede ausgegebene Zeile zusaetzlich als INFO ins Protokoll (fuer Befehle, die Daten aendern)."""
+    """Schreibt jede ausgegebene Zeile zusätzlich als INFO ins Protokoll (für Befehle, die Daten ändern)."""
 
     def __init__(self, stream, logger: logging.Logger):
         self._stream, self._log, self._buf = stream, logger, ""

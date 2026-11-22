@@ -1,8 +1,8 @@
 """Kursdaten hinter einer austauschbaren Schnittstelle.
 
-Standardquelle ist die oeffentliche Yahoo-Finance-Chart-Schnittstelle (kostenlos, aber
-inoffiziell: kann sich aendern oder blockieren). Wer wechseln will, implementiert
-`PriceProvider.history` und uebergibt den neuen Provider an `update_prices`.
+Standardquelle ist die öffentliche Yahoo-Finance-Chart-Schnittstelle (kostenlos, aber
+inoffiziell: kann sich ändern oder blockieren). Wer wechseln will, implementiert
+`PriceProvider.history` und übergibt den neuen Provider an `update_prices`.
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def parse_yahoo_chart(payload: dict) -> list[PriceRow]:
     rows = []
     for i, ts in enumerate(res.get("timestamp") or []):
         close = quote["close"][i]
-        if close is None:  # Feiertage/Luecken
+        if close is None:  # Feiertage/Lücken
             continue
         day = datetime.fromtimestamp(ts + offset, tz=timezone.utc).date()
         a = adj[i] if i < len(adj) else None
@@ -78,13 +78,13 @@ class YahooProvider:
             if resp.status_code in (429, 500, 502, 503, 504) and attempt < self._max_retries:
                 time.sleep(2 ** attempt)
                 continue
-            raise PriceError(f"Yahoo {resp.status_code} fuer {ticker}")
+            raise PriceError(f"Yahoo {resp.status_code} für {ticker}")
         raise PriceError(f"Yahoo nicht erreichbar: {ticker}")  # pragma: no cover
 
 
 def update_prices(session: Session, provider: PriceProvider, *, years: int = 5,
                   pause: float = 0.3) -> dict[str, str]:
-    """Laedt fehlende Kurse nach (inkrementell). Gibt je Ticker 'N neu' oder 'FEHLER: ...' zurueck."""
+    """Lädt fehlende Kurse nach (inkrementell). Gibt je Ticker 'N neu' oder 'FEHLER: ...' zurück."""
     report: dict[str, str] = {}
     companies = list(session.scalars(
         select(Company).where(Company.on_watchlist.is_(True)).order_by(Company.ticker)))
@@ -101,11 +101,11 @@ def update_prices(session: Session, provider: PriceProvider, *, years: int = 5,
                     session.add(Price(company_id=c.id, date=r.date, close=r.close,
                                       adj_close=r.adj_close, volume=r.volume))
                     new += 1
-                else:  # bereinigte Kurse aendern sich rueckwirkend (Dividenden/Splits)
+                else:  # bereinigte Kurse ändern sich rückwirkend (Dividenden/Splits)
                     p.close, p.adj_close, p.volume = r.close, r.adj_close, r.volume
             session.commit()
             report[c.ticker] = f"{new} neue Kurse"
-        except Exception as exc:  # ein Fehler stoppt nicht die uebrigen Titel
+        except Exception as exc:  # ein Fehler stoppt nicht die übrigen Titel
             session.rollback()
             log.warning("Kurse fehlgeschlagen: %s: %s", c.ticker, exc)
             report[c.ticker] = f"FEHLER: {exc}"

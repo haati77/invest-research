@@ -1,10 +1,10 @@
-"""LLM-Schnittstelle. Standard: `claude -p` (headless, ueber das Claude-Code-Abo).
+"""LLM-Schnittstelle. Standard: `claude -p` (headless, über das Claude-Code-Abo).
 
-Sicherheit: Berichtstexte sind nicht vertrauenswuerdige Eingaben (Prompt Injection moeglich).
-Der Aufruf schaltet daher ALLE Tools ab, laeuft in einem leeren Temp-Verzeichnis und speichert
-keine Session. Selbst eine eingeschleuste Anweisung kann nichts ausfuehren.
+Sicherheit: Berichtstexte sind nicht vertrauenswürdige Eingaben (Prompt Injection möglich).
+Der Aufruf schaltet daher ALLE Tools ab, läuft in einem leeren Temp-Verzeichnis und speichert
+keine Session. Selbst eine eingeschleuste Anweisung kann nichts ausführen.
 
-Wechsel auf die API: eine Klasse mit `complete(system, prompt) -> LLMResponse` genuegt.
+Wechsel auf die API: eine Klasse mit `complete(system, prompt) -> LLMResponse` genügt.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class LLMError(RuntimeError):
 
 class LLMUnavailable(LLMError):
     """Der Aufruf selbst ist gescheitert (Programm, Anmeldung, Zeitlimit, Limit erreicht), nicht die
-    Antwort des Modells. Wiederholte Faelle beenden den KI-Teil eines Laufs frueh (FailureGuard)."""
+    Antwort des Modells. Wiederholte Fälle beenden den KI-Teil eines Laufs früh (FailureGuard)."""
 
 
 class LLMBudgetExceeded(LLMUnavailable):
@@ -31,7 +31,7 @@ class LLMBudgetExceeded(LLMUnavailable):
 
 
 class FailureGuard:
-    """Zaehlt aufeinanderfolgende LLMUnavailable-Fehler; ab `limit` gilt die KI als nicht verfuegbar."""
+    """Zählt aufeinanderfolgende LLMUnavailable-Fehler; ab `limit` gilt die KI als nicht verfügbar."""
 
     def __init__(self, limit: int = 2):
         self.limit, self.fails, self.last = limit, 0, ""
@@ -41,19 +41,19 @@ class FailureGuard:
 
     def failed(self, exc: Exception) -> None:
         if isinstance(exc, LLMBudgetExceeded):
-            self.fails, self.last = self.limit, str(exc)  # Limit gilt fuer alle weiteren Aufrufe: sofort stoppen
+            self.fails, self.last = self.limit, str(exc)  # Limit gilt für alle weiteren Aufrufe: sofort stoppen
         elif isinstance(exc, LLMUnavailable):
             self.fails += 1
             self.last = str(exc)
         else:
-            self.fails = 0  # ungueltige Antworten sind kein Ausfall
+            self.fails = 0  # ungültige Antworten sind kein Ausfall
 
     @property
     def tripped(self) -> bool:
         return self.fails >= self.limit
 
     def message(self) -> str:
-        return f"KI nicht verfuegbar, restliche Aufrufe uebersprungen. Letzter Fehler: {self.last}"
+        return f"KI nicht verfügbar, restliche Aufrufe übersprungen. Letzter Fehler: {self.last}"
 
 
 @dataclass(frozen=True)
@@ -80,7 +80,7 @@ def _run(cmd: list[str], stdin: str, timeout: int, cwd: str) -> "subprocess.Comp
 
 
 def describe_failure(proc: "subprocess.CompletedProcess[str]", limit: int = 400) -> str:
-    """Verstaendlicher Fehlertext: bevorzugt das 'result'-Feld der JSON-Antwort, sonst stderr/stdout."""
+    """Verständlicher Fehlertext: bevorzugt das 'result'-Feld der JSON-Antwort, sonst stderr/stdout."""
     out = (proc.stdout or "").strip()
     try:
         data = json.loads(out)
@@ -103,7 +103,7 @@ class ClaudeCLI:
         self._runner = runner
         if not self._exe:
             raise LLMError("Das 'claude'-Programm wurde nicht gefunden. Claude Code installieren und "
-                           "anmelden (im Terminal 'claude' ausfuehren).")
+                           "anmelden (im Terminal 'claude' ausführen).")
 
     def command(self, system_file: str) -> list[str]:
         # Der Systemprompt steht in einer Datei: mehrzeilige Argumente mit | " < > werden von der
@@ -121,7 +121,7 @@ class ClaudeCLI:
             try:  # cwd = leeres Temp-Verzeichnis: kein Projektkontext (CLAUDE.md etc.)
                 proc = self._runner(self.command(sys_file), prompt, self._timeout, tmp)
             except subprocess.TimeoutExpired as exc:
-                raise LLMUnavailable(f"claude -p Zeitueberschreitung nach {self._timeout}s") from exc
+                raise LLMUnavailable(f"claude -p Zeitüberschreitung nach {self._timeout}s") from exc
             except OSError as exc:
                 raise LLMUnavailable(f"claude -p konnte nicht gestartet werden ({self._exe}): {exc}") from exc
         if proc.returncode != 0:
@@ -143,13 +143,13 @@ class ClaudeCLI:
 
 
 def diagnose(model: str = "haiku") -> list[tuple[bool, str]]:
-    """Prueft die claude-Anbindung Schritt fuer Schritt. Gibt (ok, Text)-Zeilen zurueck."""
+    """Prüft die claude-Anbindung Schritt für Schritt. Gibt (ok, Text)-Zeilen zurück."""
     exe = shutil.which("claude")
     if not exe:
-        return [(False, "'claude' nicht im PATH gefunden. Claude Code installieren; danach neues Terminal oeffnen.")]
+        return [(False, "'claude' nicht im PATH gefunden. Claude Code installieren; danach neues Terminal öffnen.")]
     lines = [(True, f"Programm: {exe}")]
     if exe.lower().endswith((".cmd", ".bat")):
-        lines.append((True, "Hinweis: 'claude' laeuft ueber einen .cmd-Wrapper (npm-Installation)."))
+        lines.append((True, "Hinweis: 'claude' läuft über einen .cmd-Wrapper (npm-Installation)."))
     try:
         ver = subprocess.run([exe, "--version"], capture_output=True, text=True, encoding="utf-8",
                              errors="replace", timeout=60)
@@ -166,8 +166,8 @@ def diagnose(model: str = "haiku") -> list[tuple[bool, str]]:
         lines.append((False, f"Testaufruf fehlgeschlagen: {exc}"))
         if any(w in str(exc).lower() for w in ("authenticate", "oauth", "not logged in", "login", "401")):
             lines.append((False, "Die Anmeldung ist abgelaufen oder fehlt: im Terminal 'claude' starten, dort "
-                                 "'/login' eingeben, dann 'check-claude' erneut ausfuehren."))
+                                 "'/login' eingeben, dann 'check-claude' erneut ausführen."))
         else:
-            lines.append((False, "Moegliche Ursachen: nicht angemeldet (im Terminal 'claude' starten und /login), "
+            lines.append((False, "Mögliche Ursachen: nicht angemeldet (im Terminal 'claude' starten und /login), "
                                  "Nutzungslimit erreicht, oder Modellname unbekannt (--model)."))
     return lines

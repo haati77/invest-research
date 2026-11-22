@@ -1,9 +1,9 @@
-"""Filing-HTML -> Text -> Abschnitte, plus woertliche Zitatpruefung.
+"""Filing-HTML -> Text -> Abschnitte, plus wörtliche Zitatprüfung.
 
 Reale 10-K/10-Q-Dokumente (Inline-XBRL) enthalten ein Inhaltsverzeichnis am Anfang und
-auf jeder Seite eine Kopfzeile wie 'PART I / Item 1A'. Als echte Ueberschrift gilt daher nur
+auf jeder Seite eine Kopfzeile wie 'PART I / Item 1A'. Als echte Überschrift gilt daher nur
 'Item <Nr>. <Titel>' mit Titel in derselben Zeile; bei mehreren Treffern je Item gewinnt der
-laengste Abschnitt (das Inhaltsverzeichnis ergibt nur Mini-Abschnitte).
+längste Abschnitt (das Inhaltsverzeichnis ergibt nur Mini-Abschnitte).
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import warnings
 
 from bs4 import BeautifulSoup, NavigableString, XMLParsedAsHTMLWarning
 
-# Gewuenschte Abschnitte je Formular: Schluessel -> Item-Nummer
+# Gewünschte Abschnitte je Formular: Schlüssel -> Item-Nummer
 WANTED = {
     "10-K": {"business": "1", "risks": "1a", "mdna": "7"},
     "10-Q": {"mdna": "2"},
@@ -21,14 +21,14 @@ WANTED = {
 MIN_SECTION_CHARS = 2000
 BLOCK_TAGS = ["p", "div", "br", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table"]
 
-# Nummer und Titel koennen in getrennten Tabellenzellen stehen ('ITEM 2. | MANAGEMENT...'),
+# Nummer und Titel können in getrennten Tabellenzellen stehen ('ITEM 2. | MANAGEMENT...'),
 # optional mit vorangestelltem 'PART I |'.
 HEAD_RE = re.compile(
     r"(?im)^[ \t]*(?:part[ \t]+[iv]+[ \t]*\|[ \t]*)?item[ \t]+(\d{1,2}[abc]?)[ \t]*[\.\:\-–—]"
     r"[ \t]*(?:\|[ \t]*)?([A-Za-z][^\n]{2,150})$")
 
-# Manche Berichte (z. B. PepsiCo) setzen die Finanzberichte VOR die 'Item 8'-Ueberschrift.
-# Die MD&A endet dann an der ersten dieser Zeilen (nach einer Mindestlaenge).
+# Manche Berichte (z. B. PepsiCo) setzen die Finanzberichte VOR die 'Item 8'-Überschrift.
+# Die MD&A endet dann an der ersten dieser Zeilen (nach einer Mindestlänge).
 MDNA_END_RE = re.compile(
     r"(?im)^(report of management|management.s report on internal control|"
     r"report of independent registered|consolidated (statements?|balance sheets?) of)\b")
@@ -36,7 +36,7 @@ MDNA_MIN_BEFORE_END = 5000
 
 
 def html_to_text(html: str) -> str:
-    """Sichtbarer Text mit Zeilenumbruechen an Blockgrenzen; Inline-XBRL-Tags zerreissen Saetze nicht."""
+    """Sichtbarer Text mit Zeilenumbrüchen an Blockgrenzen; Inline-XBRL-Tags zerreißen Sätze nicht."""
     warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
     soup = BeautifulSoup(html, "lxml")
     for tag in soup(["script", "style", "ix:header"]):
@@ -69,7 +69,7 @@ def _strip_trailing_noise(body: str) -> str:
 
 
 def split_sections(text: str, form_type: str) -> dict[str, str]:
-    """Liefert {schluessel: text} fuer die gewuenschten Abschnitte; nicht Gefundenes fehlt einfach."""
+    """Liefert {schlüssel: text} für die gewünschten Abschnitte; nicht Gefundenes fehlt einfach."""
     wanted = WANTED.get(form_type.split("/")[0], {})
     heads = [(m.start(), m.end(), m.group(1).lower()) for m in HEAD_RE.finditer(text)]
     best: dict[str, str] = {}
@@ -93,10 +93,10 @@ def _trim_mdna(text: str) -> str:
 
 def _norm(s: str) -> str:
     s = unicodedata.normalize("NFKC", s).casefold()
-    return re.sub(r"[^0-9a-z]+", "", s)  # Anfuehrungszeichen, Bindestriche, Leerraum egal
+    return re.sub(r"[^0-9a-z]+", "", s)  # Anführungszeichen, Bindestriche, Leerraum egal
 
 
 def quote_in_text(quote: str, text: str, *, min_chars: int = 25) -> bool:
-    """True, wenn das Zitat (bis auf Formatierung) zusammenhaengend im Originaltext steht."""
+    """True, wenn das Zitat (bis auf Formatierung) zusammenhängend im Originaltext steht."""
     q = _norm(quote)
     return len(q) >= min_chars and q in _norm(text)

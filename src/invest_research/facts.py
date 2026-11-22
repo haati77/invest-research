@@ -1,8 +1,8 @@
-"""Uebersetzt XBRL-'companyfacts' in einheitliche Kennzahlen-Rohwerte.
+"""Übersetzt XBRL-'companyfacts' in einheitliche Kennzahlen-Rohwerte.
 
-Mehrere XBRL-Tags liefern dasselbe Konzept (z. B. Umsatz). Tags werden zusammengefuehrt:
-bei gleicher Periode gewinnt der Tag mit hoeherer Prioritaet, bei gleichem Tag die
-zuletzt eingereichte Meldung (Korrekturen ueberschreiben).
+Mehrere XBRL-Tags liefern dasselbe Konzept (z. B. Umsatz). Tags werden zusammengeführt:
+bei gleicher Periode gewinnt der Tag mit höherer Priorität, bei gleichem Tag die
+zuletzt eingereichte Meldung (Korrekturen überschreiben).
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ ALLOWED_FORMS = ANNUAL_FORMS | QUARTER_FORMS
 @dataclass(frozen=True)
 class Concept:
     name: str
-    tags: tuple[str, ...]  # Prioritaet: erster Tag zuerst
+    tags: tuple[str, ...]  # Priorität: erster Tag zuerst
     kind: str  # "duration" (Fluss) | "instant" (Bestand)
     unit: str = "USD"
     taxonomy: str = "us-gaap"
