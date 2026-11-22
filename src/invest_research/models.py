@@ -70,6 +70,20 @@ class Metric(Base):
     company: Mapped[Company] = relationship(back_populates="metrics")
 
 
+class Price(Base):
+    """Tagesschlusskurs (close = unbereinigt, adj_close = um Splits/Dividenden bereinigt)."""
+
+    __tablename__ = "prices"
+    __table_args__ = (UniqueConstraint("company_id", "date"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    date: Mapped[date] = mapped_column(Date)
+    close: Mapped[float] = mapped_column(Float)
+    adj_close: Mapped[float | None] = mapped_column(Float)
+    volume: Mapped[float | None] = mapped_column(Float)
+
+
 class Profile(Base):
     """Versioniertes KI-Unternehmensprofil."""
 

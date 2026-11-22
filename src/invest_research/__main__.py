@@ -1,4 +1,4 @@
-"""CLI:  python -m invest_research <init|ingest|compute|compare|status>"""
+"""CLI:  python -m invest_research <init|ingest|compute|prices|update|compare|dashboard|status>"""
 from __future__ import annotations
 
 import argparse
@@ -13,6 +13,7 @@ from .config import load_settings, load_watchlist
 from .db import get_engine, init_db, sync_watchlist
 from .edgar import EdgarClient
 from .ingest import ingest_watchlist
+from .prices import YahooProvider, update_prices
 from .engine import RATIOS
 from .models import Company, Filing, Metric
 from .peers import add_percentiles, format_value, overall_score, snapshot
@@ -50,6 +51,10 @@ def main() -> None:
     p_ing = sub.add_parser("ingest", help="Filings und Kennzahlen von EDGAR laden")
     p_ing.add_argument("--ticker", help="nur diesen Ticker laden")
     p_ing.add_argument("--years", type=int, default=6, help="Anzahl Jahre Historie (Standard 6)")
+    sub.add_parser("prices", help="Kursdaten laden (inkrementell)")
+    p_upd = sub.add_parser("update", help="Alles aktualisieren: ingest + compute + prices")
+    p_upd.add_argument("--years", type=int, default=6)
+    sub.add_parser("dashboard", help="Dashboard im Browser starten")
     sub.add_parser("compute", help="Abgeleitete Kennzahlen berechnen (Q4, TTM, Quoten)")
     p_cmp = sub.add_parser("compare", help="Peer-Vergleich anzeigen")
     p_cmp.add_argument("--basis", choices=["FY", "TTM"], default="FY")
@@ -73,6 +78,24 @@ def main() -> None:
             for r in ingest_watchlist(session, client, since_year=since, only_ticker=args.ticker):
                 status = f"FEHLER: {r.error}" if r.error else f"{r.new_filings} neue Filings, {r.metrics_written} Kennzahlen"
                 print(f"{r.ticker:6} {status}")
+        elif args.cmd == "prices":
+            for ticker, msg in update_prices(session, YahooProvider()).items():
+                print(f"{ticker:6} {msg}")
+        elif args.cmd == "update":
+            client = EdgarClient(settings.sec_user_agent)
+            for r in ingest_watchlist(session, client, since_year=date.today().year - args.years):
+                print(f"{r.ticker:6} " + (f"FEHLER: {r.error}" if r.error else
+                                          f"{r.new_filings} neue Filings, {r.metrics_written} Kennzahlen"))
+            compute_watchlist(session)
+            print("Kennzahlen berechnet.")
+            for ticker, msg in update_prices(session, YahooProvider()).items():
+                print(f"{ticker:6} {msg}")
+        elif args.cmd == "dashboard":
+            import subprocess
+            import sys
+            from pathlib import Path
+            app = Path(__file__).parent / "dashboard" / "app.py"
+            subprocess.run([sys.executable, "-m", "streamlit", "run", str(app)], check=False)
         elif args.cmd == "compute":
             for ticker, n in compute_watchlist(session).items():
                 print(f"{ticker:6} {n} abgeleitete Kennzahlen geschrieben/aktualisiert")

@@ -18,8 +18,8 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 ## Fahrplan
 1. Fundament (Struktur, Config, Datenmodell, Tests) -- erledigt
 2. EDGAR-Anbindung (Ticker->CIK, Filings, XBRL companyfacts) -- erledigt
-3. Kennzahlen-Engine + Peer-Vergleich (ohne KI) -- erledigt (Bewertung P/E, P/S folgt mit Kursdaten in Schritt 4)
-4. Erstes Dashboard (Streamlit)
+3. Kennzahlen-Engine + Peer-Vergleich (ohne KI) -- erledigt
+4. Erstes Dashboard (Streamlit) -- erledigt
 5. KI-Berichtsanalyse
 6. Unternehmensprofile
 7. Veraenderungserkennung + Alerts
@@ -44,3 +44,12 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 - `peers.py`: Snapshot je Firma (letztes FY bzw. TTM), Perzentil in der Branche (`pct_*`) und gesamt (`pctall_*`).
   Der Score ist nur Orientierung: Firmen mit Datenluecken werden aus weniger Quoten gemittelt (z. B. PEP ohne FCF).
 - Nicht vergleichbar ohne Vorsicht: Geschaeftsjahre enden unterschiedlich (Spalte Stichtag beachten).
+
+## Kurse, Bewertung, Dashboard (Schritt 4)
+- CLI: `prices`, `update` (ingest + compute + prices), `dashboard`. README enthaelt die Windows-Befehle.
+- `prices.py`: Provider-Schnittstelle, Standard = Yahoo-Chart-API (inoffiziell; Ausfall moeglich, daher austauschbar). Inkrementell, idempotent.
+- `valuation.py`: KGV, KUV, Kurs/FCF aus Kurs und TTM-Werten; Basis <= 0 -> None. EV bewusst weggelassen (Nettoverschuldung unvollstaendig: nur langfristige Schulden).
+- `queries.py`: lesende Abfragen fuers Dashboard (kein Streamlit-Code). `dashboard/app.py`: Seiten Uebersicht, Peer-Vergleich, Unternehmen, Alerts.
+- Diagramme: Farben aus der validierten dataviz-Palette (Slots 1-3), Hell/Dunkel ueber `st.context.theme`. Hell-Modus Aqua hat Kontrast-WARN -> Legende, Direktbeschriftung und Tabellenansicht sind Pflicht.
+- Aktienanzahl stammt vom 10-Q/10-K-Deckblatt (dei). Bei Firmen mit mehreren Aktienklassen waere die Marktkapitalisierung unvollstaendig (nicht auf der Start-Watchlist).
+- Dashboard-Test: `tests/test_prices_valuation_dashboard.py` (Streamlit AppTest); visuell mit Playwright geprueft (hell/dunkel).
