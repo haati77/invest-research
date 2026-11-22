@@ -26,6 +26,10 @@ class LLMUnavailable(LLMError):
     Antwort des Modells. Wiederholte Faelle beenden den KI-Teil eines Laufs frueh (FailureGuard)."""
 
 
+class LLMBudgetExceeded(LLMUnavailable):
+    """Selbstgesetztes Limit (Aufrufe/Tag oder Kosten/Monat) erreicht: KI-Arbeit endet sofort."""
+
+
 class FailureGuard:
     """Zaehlt aufeinanderfolgende LLMUnavailable-Fehler; ab `limit` gilt die KI als nicht verfuegbar."""
 
@@ -36,7 +40,9 @@ class FailureGuard:
         self.fails = 0
 
     def failed(self, exc: Exception) -> None:
-        if isinstance(exc, LLMUnavailable):
+        if isinstance(exc, LLMBudgetExceeded):
+            self.fails, self.last = self.limit, str(exc)  # Limit gilt fuer alle weiteren Aufrufe: sofort stoppen
+        elif isinstance(exc, LLMUnavailable):
             self.fails += 1
             self.last = str(exc)
         else:

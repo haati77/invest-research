@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from invest_research import queries
 from invest_research.config import load_settings
+from invest_research.logsetup import tail
+from invest_research.usage import Budget, usage_summary
 from invest_research.db import get_engine, init_db
 from invest_research.engine import RATIOS
 from invest_research.profiles import CORE_RATIOS, ABSOLUTE, diff_profiles, render_markdown
@@ -432,8 +434,49 @@ def page_profile(session: Session) -> None:
                        file_name=f"{ticker}_profil_{c['generated_on']}.md", mime="text/markdown")
 
 
+# ---------------------------------------------------------------- System
+def page_system(session: Session) -> None:
+    st.header("System")
+    settings = load_settings()
+    st.subheader("Datenstand")
+    ds = queries.data_status(session)
+    if ds.empty:
+        return empty_state()
+    newest = ds["last_price"].dropna().max() if ds["last_price"].notna().any() else None
+    if newest is None:
+        st.warning("Keine Kursdaten vorhanden: `python -m invest_research prices`")
+    elif (pd.Timestamp.today().normalize() - pd.Timestamp(newest)).days > 4:
+        st.warning(f"Die Kurse sind aelter als 4 Tage (neuester: {newest}). "
+                   "Aktualisieren: `python -m invest_research update`")
+    ds = ds.rename(columns={"last_price": "Letzter Kurs", "last_report": "Letzter Bericht",
+                            "last_profile": "Letztes Profil", "analyses": "KI-Analysen", "open_alerts": "Offene Alerts"})
+    st.dataframe(ds, width="stretch")
+
+    st.subheader("KI-Nutzung")
+    u = usage_summary(session, Budget(settings.llm_max_calls_per_day, settings.llm_max_cost_per_month))
+    st.progress(min(1.0, u["calls_today"] / max(1, u["max_calls_per_day"])),
+                text=f"Heute {u['calls_today']} von {u['max_calls_per_day']} erlaubten KI-Aufrufen")
+    cap = f" von {u['max_cost_per_month']:.2f} USD" if u["max_cost_per_month"] else ""
+    st.caption(f"Dieser Monat: {u['cost_month']:.3f} USD Listenpreis{cap}. Bei einem Abo wird nichts berechnet, "
+               "es zaehlt dein Nutzungskontingent. Limits stehen in der Datei `.env`.")
+    if u["by_purpose"]:
+        st.dataframe(pd.DataFrame(u["by_purpose"]).rename(columns={
+            "purpose": "Zweck", "calls": "Aufrufe", "input_tokens": "Token rein", "output_tokens": "Token raus",
+            "cost_usd": "USD (Liste)"}), hide_index=True, width="stretch")
+    if u["failed_month"]:
+        st.warning(f"{u['failed_month']} fehlgeschlagene KI-Aufrufe in diesem Monat. Letzte Fehler:")
+        for e in u["recent_errors"]:
+            st.caption(f"{e['at']:%Y-%m-%d %H:%M} {e['purpose']}: {e['error']}")
+
+    st.subheader("Protokoll")
+    log_text = tail(settings.log_path, 80)
+    with st.expander("Letzte 80 Zeilen der Logdatei", expanded=False):
+        st.code(log_text or "Noch kein Protokoll.", language="text")
+    st.caption(f"Logdatei: {settings.log_path}")
+
+
 PAGES = {"Uebersicht": page_overview, "Peer-Vergleich": page_peers, "Profil": page_profile,
-         "Unternehmen": page_company, "Alerts": page_alerts}
+         "Unternehmen": page_company, "Alerts": page_alerts, "System": page_system}
 
 
 def main() -> None:

@@ -23,6 +23,9 @@ class Settings:
     sec_user_agent: str
     database_path: Path
     watchlist_path: Path
+    log_path: Path
+    llm_max_calls_per_day: int = 80          # harte Obergrenze erfolgreicher KI-Aufrufe je Tag
+    llm_max_cost_per_month: float | None = None  # optional, Listenpreis in USD (Abo: nur Orientierung)
 
     @property
     def database_url(self) -> str:
@@ -34,10 +37,14 @@ def load_settings() -> Settings:
     db = Path(os.getenv("DATABASE_PATH", "data/research.db"))
     if not db.is_absolute():
         db = PROJECT_ROOT / db
+    cost = os.getenv("LLM_MAX_COST_USD_PER_MONTH", "").strip()
     return Settings(
         sec_user_agent=os.getenv("SEC_USER_AGENT", ""),
         database_path=db,
         watchlist_path=PROJECT_ROOT / "config" / "watchlist.yaml",
+        log_path=db.parent / "invest_research.log",
+        llm_max_calls_per_day=int(os.getenv("LLM_MAX_CALLS_PER_DAY", "80") or 80),
+        llm_max_cost_per_month=float(cost) if cost else None,
     )
 
 

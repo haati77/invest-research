@@ -1,8 +1,9 @@
-"""CLI:  python -m invest_research <init|ingest|compute|prices|update|watch|alerts|analyze|show|profile|show-profile|check-claude|compare|dashboard|status>"""
+"""CLI:  python -m invest_research <init|ingest|compute|prices|update|watch|alerts|analyze|show|profile|show-profile|usage|check-claude|compare|dashboard|status>"""
 from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from datetime import date
 
 from sqlalchemy import func, select
@@ -16,6 +17,8 @@ from .db import get_engine, init_db, sync_watchlist
 from .edgar import EdgarClient
 from .ingest import ingest_watchlist
 from .llm import ClaudeCLI, LLMError, diagnose
+from .logsetup import Tee, setup_logging
+from .usage import Budget, MeteredLLM, usage_summary
 from .profiles import build_profiles, render_markdown
 from .prices import YahooProvider, update_prices
 from .engine import RATIOS
@@ -84,8 +87,34 @@ def print_analysis(session: Session, ticker: str) -> None:
                 print(f"      Zitat: \"{it['quote']}\"")
 
 
+DATA_COMMANDS = {"init", "ingest", "prices", "update", "compute", "analyze", "watch", "profile"}
+log = logging.getLogger("invest_research")
+
+
+def make_llm(model: str, purpose: str, engine, settings) -> MeteredLLM:
+    """claude -p mit Nutzungsprotokoll und Tageslimit. Wirft LLMError, wenn claude fehlt."""
+    budget = Budget(settings.llm_max_calls_per_day, settings.llm_max_cost_per_month)
+    return MeteredLLM(ClaudeCLI(model=model), engine, purpose, budget)
+
+
+def print_usage(session: Session, settings) -> None:
+    u = usage_summary(session, Budget(settings.llm_max_calls_per_day, settings.llm_max_cost_per_month))
+    print(f"Heute: {u['calls_today']} von {u['max_calls_per_day']} erlaubten KI-Aufrufen")
+    cap = f" von {u['max_cost_per_month']:.2f} USD" if u["max_cost_per_month"] else " (kein Limit gesetzt)"
+    print(f"Dieser Monat: {u['cost_month']:.3f} USD Listenpreis{cap}; bei Abo wird nichts berechnet, "
+          "es zaehlt dein Nutzungskontingent.")
+    for r in u["by_purpose"]:
+        print(f"  {r['purpose']:8} {r['calls']:4} Aufrufe  {r['input_tokens']:>9,} Token rein  "
+              f"{r['output_tokens']:>8,} raus  {r['cost_usd']:.3f} USD")
+    if u["failed_month"]:
+        print(f"Fehlgeschlagene Aufrufe in diesem Monat: {u['failed_month']}")
+        for e in u["recent_errors"]:
+            print(f"  {e['at']:%Y-%m-%d %H:%M} {e['purpose']:8} {e['error']}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="invest_research")
+    parser.add_argument("-v", "--verbose", action="store_true", help="auch Info-Meldungen auf der Konsole (Logdatei hat sie immer)")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("init", help="Datenbank anlegen und Watchlist uebernehmen")
     p_ing = sub.add_parser("ingest", help="Filings und Kennzahlen von EDGAR laden")
@@ -125,12 +154,15 @@ def main() -> None:
     p_cmp = sub.add_parser("compare", help="Peer-Vergleich anzeigen")
     p_cmp.add_argument("--basis", choices=["FY", "TTM"], default="FY")
     p_cmp.add_argument("--sector", help="nur diese Branche")
+    sub.add_parser("usage", help="KI-Nutzung und Limits anzeigen")
     sub.add_parser("status", help="Datenbestand anzeigen")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    logging.getLogger("httpx").setLevel(logging.WARNING)
     settings = load_settings()
+    setup_logging(settings.log_path, verbose=args.verbose)
+    log.info("Start: %s", " ".join(sys.argv[1:]) or args.cmd)
+    if args.cmd in DATA_COMMANDS:  # Ausgabezeilen datenaendernder Befehle landen auch in der Logdatei
+        sys.stdout = Tee(sys.stdout, log)
     engine = get_engine(settings)
     init_db(engine)
 
@@ -161,7 +193,7 @@ def main() -> None:
                   "(Anzeigen: alerts; Risikotext-Vergleich: watch)")
         elif args.cmd == "analyze":
             try:
-                llm = ClaudeCLI(model=args.model)
+                llm = make_llm(args.model, "analyze", engine, settings)
             except LLMError as exc:
                 raise SystemExit(str(exc))
             reports, pending = analyze_watchlist(session, llm, EdgarClient(settings.sec_user_agent),
@@ -177,7 +209,7 @@ def main() -> None:
             llm = None
             if not args.no_ai:
                 try:
-                    llm = ClaudeCLI(model=args.model)
+                    llm = make_llm(args.model, "profile", engine, settings)
                 except LLMError as exc:
                     raise SystemExit(f"{exc}\n(Oder mit --no-ai ohne KI-Synthese.)")
             for r in build_profiles(session, llm, only_ticker=args.ticker, force=args.force):
@@ -199,7 +231,7 @@ def main() -> None:
                 llm = None
                 if not args.no_ai:
                     try:
-                        llm = ClaudeCLI(model=args.model)
+                        llm = make_llm(args.model, "watch", engine, settings)
                     except LLMError as exc:
                         raise SystemExit(f"{exc}\n(Oder mit --no-ai ohne KI-Einordnung.)")
                 for r in detect_text_changes(session, llm, EdgarClient(settings.sec_user_agent),
@@ -209,6 +241,8 @@ def main() -> None:
             print_alerts(session, only_unseen=True, min_severity=1, mark_seen=False)
         elif args.cmd == "alerts":
             print_alerts(session, only_unseen=not args.all, min_severity=args.min_severity, mark_seen=args.mark_seen)
+        elif args.cmd == "usage":
+            print_usage(session, settings)
         elif args.cmd == "check-claude":
             results = diagnose(args.model)
             for ok, line in results:
@@ -218,7 +252,6 @@ def main() -> None:
             print("\nclaude -p funktioniert.")
         elif args.cmd == "dashboard":
             import subprocess
-            import sys
             from pathlib import Path
             app = Path(__file__).parent / "dashboard" / "app.py"
             subprocess.run([sys.executable, "-m", "streamlit", "run", str(app)], check=False)

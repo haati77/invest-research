@@ -114,6 +114,23 @@ class Price(Base):
     volume: Mapped[float | None] = mapped_column(Float)
 
 
+class LLMCall(Base):
+    """Protokoll jedes KI-Aufrufs (Nutzungsanzeige und Limits)."""
+
+    __tablename__ = "llm_calls"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+    purpose: Mapped[str] = mapped_column(String(20))  # analyze | watch | profile | ask | check
+    model: Mapped[str] = mapped_column(String(60))
+    ok: Mapped[bool] = mapped_column(default=True)
+    input_tokens: Mapped[int | None] = mapped_column()
+    output_tokens: Mapped[int | None] = mapped_column()
+    cost_usd: Mapped[float | None] = mapped_column(Float)  # Listenpreis laut claude, bei Abo nicht berechnet
+    duration_s: Mapped[float | None] = mapped_column(Float)
+    error: Mapped[str | None] = mapped_column(String(400))
+
+
 class Profile(Base):
     """Versioniertes KI-Unternehmensprofil."""
 

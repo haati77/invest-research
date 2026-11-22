@@ -126,3 +126,23 @@ def profile_versions(session: Session, ticker: str) -> list[dict]:
          .where(Company.ticker == ticker.upper()).order_by(Profile.created_at.desc(), Profile.id.desc()))
     return [{"id": p.id, "created_at": p.created_at, "model": p.model, "content": p.content}
             for p in session.scalars(q)]
+
+
+def data_status(session: Session) -> pd.DataFrame:
+    """Datenstand je Watchlist-Titel: Aktualitaet von Kurs, Bericht, Profil; Zahl der Analysen und offenen Alerts."""
+    from sqlalchemy import func
+    rows = []
+    for c in watchlist(session):
+        last_price = session.scalar(select(func.max(Price.date)).where(Price.company_id == c.id))
+        filing = session.execute(select(Filing.form_type, Filing.filed_at).where(
+            Filing.company_id == c.id, Filing.form_type.in_(["10-K", "10-Q"]))
+            .order_by(Filing.filed_at.desc()).limit(1)).first()
+        last_profile = session.scalar(select(func.max(Profile.created_at)).where(Profile.company_id == c.id))
+        n_an = session.scalar(select(func.count()).select_from(Analysis).join(Filing, Filing.id == Analysis.filing_id)
+                              .where(Filing.company_id == c.id)) or 0
+        n_ev = session.scalar(select(func.count()).select_from(Event).where(
+            Event.company_id == c.id, Event.seen.is_(False))) or 0
+        rows.append({"ticker": c.ticker, "last_price": last_price,
+                     "last_report": f"{filing[0]} {filing[1]}" if filing else None,
+                     "last_profile": last_profile, "analyses": n_an, "open_alerts": n_ev})
+    return pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
