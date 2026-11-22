@@ -1,4 +1,4 @@
-"""CLI:  python -m invest_research <init|ingest|compute|prices|update|watch|alerts|analyze|show|profile|show-profile|usage|check-claude|compare|dashboard|status>"""
+"""CLI:  python -m invest_research <init|ingest|compute|prices|update|watch|alerts|analyze|show|profile|show-profile|usage|ask|check-claude|compare|dashboard|status>"""
 from __future__ import annotations
 
 import argparse
@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .analysis import analyze_watchlist
+from .ask import ask as ask_question
 from .changes import detect_all_numeric, detect_text_changes
 from .compute import compute_watchlist
 from .config import load_settings, load_watchlist
@@ -18,7 +19,7 @@ from .edgar import EdgarClient
 from .ingest import ingest_watchlist
 from .llm import ClaudeCLI, LLMError, diagnose
 from .logsetup import Tee, setup_logging
-from .usage import Budget, MeteredLLM, usage_summary
+from .usage import Budget, make_llm, usage_summary
 from .profiles import build_profiles, render_markdown
 from .prices import YahooProvider, update_prices
 from .engine import RATIOS
@@ -91,12 +92,6 @@ DATA_COMMANDS = {"init", "ingest", "prices", "update", "compute", "analyze", "wa
 log = logging.getLogger("invest_research")
 
 
-def make_llm(model: str, purpose: str, engine, settings) -> MeteredLLM:
-    """claude -p mit Nutzungsprotokoll und Tageslimit. Wirft LLMError, wenn claude fehlt."""
-    budget = Budget(settings.llm_max_calls_per_day, settings.llm_max_cost_per_month)
-    return MeteredLLM(ClaudeCLI(model=model), engine, purpose, budget)
-
-
 def print_usage(session: Session, settings) -> None:
     u = usage_summary(session, Budget(settings.llm_max_calls_per_day, settings.llm_max_cost_per_month))
     print(f"Heute: {u['calls_today']} von {u['max_calls_per_day']} erlaubten KI-Aufrufen")
@@ -110,6 +105,22 @@ def print_usage(session: Session, settings) -> None:
         print(f"Fehlgeschlagene Aufrufe in diesem Monat: {u['failed_month']}")
         for e in u["recent_errors"]:
             print(f"  {e['at']:%Y-%m-%d %H:%M} {e['purpose']:8} {e['error']}")
+
+
+def print_answer(result, *, show_plan: bool = False) -> None:
+    print(f"\nVerstanden als: {result.interpreted}\n")
+    if result.table is not None and not result.table.empty:
+        print(result.table.to_string())
+    if result.text:
+        t = result.text
+        print(f"KI-Zusammenfassung (nicht zitatgeprueft): {t['summary']}\n")
+        for it in t["items"][:8]:
+            print(f"  - {it['title']}: {it['statement']}\n      Zitat: \"{it['quote']}\"")
+    for n in result.notes:
+        print(f"\nHinweis: {n}")
+    if show_plan:
+        print("\nAbfrageplan:", result.plan.model_dump_json(indent=2))
+    print("\nRecherche-Hilfe, keine Anlageberatung. Zahlen aus der lokalen Datenbank (Kurse und Berichte siehe Seite System).")
 
 
 def main() -> None:
@@ -155,6 +166,10 @@ def main() -> None:
     p_cmp.add_argument("--basis", choices=["FY", "TTM"], default="FY")
     p_cmp.add_argument("--sector", help="nur diese Branche")
     sub.add_parser("usage", help="KI-Nutzung und Limits anzeigen")
+    p_ask = sub.add_parser("ask", help="Frage in natuerlicher Sprache an die Daten stellen")
+    p_ask.add_argument("question", nargs="+", help='z. B. "Welche Titel haben sinkende Margen und steigende Schulden?"')
+    p_ask.add_argument("--model", default="haiku")
+    p_ask.add_argument("--plan", action="store_true", help="auch den Abfrageplan als JSON zeigen")
     sub.add_parser("status", help="Datenbestand anzeigen")
     args = parser.parse_args()
 
@@ -241,6 +256,13 @@ def main() -> None:
             print_alerts(session, only_unseen=True, min_severity=1, mark_seen=False)
         elif args.cmd == "alerts":
             print_alerts(session, only_unseen=not args.all, min_severity=args.min_severity, mark_seen=args.mark_seen)
+        elif args.cmd == "ask":
+            try:
+                llm = make_llm(args.model, "ask", engine, settings)
+                result = ask_question(session, llm, " ".join(args.question))
+            except (LLMError, ValueError) as exc:
+                raise SystemExit(f"Fehler: {exc}")
+            print_answer(result, show_plan=args.plan)
         elif args.cmd == "usage":
             print_usage(session, settings)
         elif args.cmd == "check-claude":

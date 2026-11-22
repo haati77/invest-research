@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 from invest_research import queries
 from invest_research.config import load_settings
 from invest_research.logsetup import tail
-from invest_research.usage import Budget, usage_summary
+from invest_research.ask import ask as ask_data
+from invest_research.llm import LLMError
+from invest_research.usage import Budget, make_llm, usage_summary
 from invest_research.db import get_engine, init_db
 from invest_research.engine import RATIOS
 from invest_research.profiles import CORE_RATIOS, ABSOLUTE, diff_profiles, render_markdown
@@ -434,6 +436,60 @@ def page_profile(session: Session) -> None:
                        file_name=f"{ticker}_profil_{c['generated_on']}.md", mime="text/markdown")
 
 
+# ---------------------------------------------------------------- Fragen
+EXAMPLES = ["Welche Titel haben sinkende Margen und steigende Schulden?",
+            "Welche Halbleiter-Firmen haben mehr als 40 Prozent operative Marge?",
+            "Welche drei Titel sind am billigsten gemessen am KGV?",
+            "Welche Risiken nennt Microsoft?"]
+
+
+def render_answer(result) -> None:
+    st.info(f"Verstanden als: {result.interpreted}")
+    if result.table is not None and not result.table.empty:
+        st.dataframe(result.table, width="stretch")
+    if result.text:
+        t = result.text
+        st.markdown(f"**KI-Zusammenfassung** (nicht zitatgeprueft): {t['summary']}")
+        for it in t["items"][:8]:
+            st.markdown(f"**{it['title']}**  \n{it['statement']}")
+            st.caption(f"Originalzitat: \u201e{it['quote']}\u201c")
+        if t.get("url"):
+            st.markdown(f"[Originaldokument]({t['url']})")
+    for n in result.notes:
+        st.caption(n)
+    with st.expander("Abfrageplan (so hat die KI die Frage uebersetzt)"):
+        st.json(result.plan.model_dump())
+    st.caption("Die KI uebersetzt nur die Frage. Alle Zahlen stammen aus der lokalen Datenbank. "
+               "Recherche-Hilfe, keine Anlageberatung.")
+
+
+def page_ask(session: Session) -> None:
+    st.header("Fragen an die Daten")
+    st.caption("Stelle eine Frage in normaler Sprache. Beispiele zum Anklicken:")
+    cols = st.columns(len(EXAMPLES))
+    for col, ex in zip(cols, EXAMPLES):
+        if col.button(ex, key=f"ex_{ex}", width="stretch"):
+            st.session_state["ask_q"] = ex
+    with st.form("ask_form"):
+        question = st.text_input("Frage", key="ask_q", placeholder="z. B. Welche Titel sind guenstig und haben wenig Schulden?")
+        submitted = st.form_submit_button("Fragen")
+    history = st.session_state.setdefault("ask_history", [])
+    if submitted and question.strip():
+        try:
+            with st.spinner("Die KI uebersetzt die Frage ..."):
+                llm = make_llm("haiku", "ask", get_db_engine(), load_settings())
+                result = ask_data(session, llm, question)
+            render_answer(result)
+            history.insert(0, f"{question}  ->  {result.interpreted}")
+        except LLMError as exc:
+            st.error(f"{exc}")
+            st.caption("Bei Anmeldeproblemen: im Terminal `python -m invest_research check-claude` ausfuehren.")
+    if history:
+        with st.expander(f"Bisherige Fragen in dieser Sitzung ({len(history)})"):
+            for h in history[:20]:
+                st.markdown(f"- {h}")
+
+
 # ---------------------------------------------------------------- System
 def page_system(session: Session) -> None:
     st.header("System")
@@ -476,7 +532,7 @@ def page_system(session: Session) -> None:
 
 
 PAGES = {"Uebersicht": page_overview, "Peer-Vergleich": page_peers, "Profil": page_profile,
-         "Unternehmen": page_company, "Alerts": page_alerts, "System": page_system}
+         "Unternehmen": page_company, "Alerts": page_alerts, "Fragen": page_ask, "System": page_system}
 
 
 def main() -> None:

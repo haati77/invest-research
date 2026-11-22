@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from .llm import LLMBudgetExceeded, LLMClient, LLMResponse
+from .llm import ClaudeCLI, LLMBudgetExceeded, LLMClient, LLMResponse
 from .models import LLMCall
 
 
@@ -104,3 +104,9 @@ def usage_summary(session: Session, budget: Budget) -> dict:
     last = session.scalars(select(LLMCall).where(LLMCall.ok.is_(False)).order_by(LLMCall.created_at.desc()).limit(3))
     out["recent_errors"] = [{"at": c.created_at, "purpose": c.purpose, "error": c.error} for c in last]
     return out
+
+
+def make_llm(model: str, purpose: str, engine: Engine, settings) -> MeteredLLM:
+    """claude -p mit Nutzungsprotokoll und Limits. Wirft LLMError, wenn claude fehlt."""
+    return MeteredLLM(ClaudeCLI(model=model), engine, purpose,
+                      Budget(settings.llm_max_calls_per_day, settings.llm_max_cost_per_month))
