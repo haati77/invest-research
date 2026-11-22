@@ -46,6 +46,13 @@ class EdgarClient:
         self._last_request = 0.0
 
     def _get_json(self, url: str) -> dict:
+        return self._get(url).json()
+
+    def get_document(self, url: str) -> str:
+        """Laedt ein Filing-Dokument (HTML) als Text; httpx entpackt gzip automatisch."""
+        return self._get(url).text
+
+    def _get(self, url: str) -> httpx.Response:
         for attempt in range(self._max_retries + 1):
             wait = self._min_interval - (time.monotonic() - self._last_request)
             if wait > 0:
@@ -53,7 +60,7 @@ class EdgarClient:
             self._last_request = time.monotonic()
             resp = self._client.get(url, headers=self._headers)
             if resp.status_code == 200:
-                return resp.json()
+                return resp
             if resp.status_code in (429, 500, 502, 503, 504) and attempt < self._max_retries:
                 time.sleep(2 ** attempt)
                 continue

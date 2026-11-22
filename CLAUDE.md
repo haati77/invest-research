@@ -20,7 +20,7 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 2. EDGAR-Anbindung (Ticker->CIK, Filings, XBRL companyfacts) -- erledigt
 3. Kennzahlen-Engine + Peer-Vergleich (ohne KI) -- erledigt
 4. Erstes Dashboard (Streamlit) -- erledigt
-5. KI-Berichtsanalyse
+5. KI-Berichtsanalyse -- erledigt
 6. Unternehmensprofile
 7. Veraenderungserkennung + Alerts
 8. Politur (Limits, Logging, Fragen an die Daten)
@@ -53,3 +53,13 @@ Analysiert US-Unternehmen (SEC EDGAR), vergleicht Kennzahlen, erstellt KI-Profil
 - Diagramme: Farben aus der validierten dataviz-Palette (Slots 1-3), Hell/Dunkel ueber `st.context.theme`. Hell-Modus Aqua hat Kontrast-WARN -> Legende, Direktbeschriftung und Tabellenansicht sind Pflicht.
 - Aktienanzahl stammt vom 10-Q/10-K-Deckblatt (dei). Bei Firmen mit mehreren Aktienklassen waere die Marktkapitalisierung unvollstaendig (nicht auf der Start-Watchlist).
 - Dashboard-Test: `tests/test_prices_valuation_dashboard.py` (Streamlit AppTest); visuell mit Playwright geprueft (hell/dunkel).
+
+## KI-Berichtsanalyse (Schritt 5)
+- CLI: `analyze [--ticker T] [--max-calls N] [--model haiku|sonnet] [--force]`, `show TICKER`. Dashboard: Unternehmen -> "KI-Analyse der Berichte".
+- Pipeline: `filing_text.py` (HTML -> Text -> Abschnitte business/risks/mdna bei 10-K, mdna bei 10-Q), `llm.py` (`claude -p`), `analysis.py` (Prompts, Schemas, Zitatpruefung, Orchestrierung). Tabellen `filing_sections`, `analyses`.
+- Abschnittserkennung: nur Ueberschriften `Item N. Titel` (Titel in derselben Zeile bzw. Tabellenzelle `ITEM 2. | TITEL`), bei Mehrfachtreffern gewinnt der laengste Abschnitt (Inhaltsverzeichnis/Seitenkopfzeilen werden so ignoriert). MD&A endet vor `Report of Management`/`Consolidated Statements of ...` (PepsiCo setzt Finanzberichte vor Item 8). An den neuesten 10-K/10-Q aller 10 Watchlist-Firmen geprueft; bei neuen Firmen Abschnittsgroessen pruefen.
+- SICHERHEIT: Berichtstext ist nicht vertrauenswuerdig (Prompt Injection). `claude -p` laeuft immer mit `--tools ""`, leerem Temp-Verzeichnis, ohne Session-Speicherung; Prompt per stdin. Nie Tools aktivieren.
+- Qualitaetssicherung: jedes Zitat wird woertlich (formatierungstolerant) gegen den Text geprueft, den das Modell sah; nur verifizierte Aussagen erscheinen im Dashboard. GRENZE: Das Zitat belegt nicht automatisch jedes Detail der Aussage (Prompt v2 verlangt das, ist aber nicht maschinell pruefbar), und die Zusammenfassung ist nie zitatgeprueft.
+- Kosten/Limits: Standardmodell haiku (guter Kompromiss: ~0,005 USD Listenpreis je Abschnitt, ~15-20 s). `--max-calls` (Standard 12) begrenzt jeden Lauf, Fortschritt ist gespeichert, Wiederholung macht weiter. Ergebnisse je (Filing, Abschnitt, PROMPT_VERSION) einmal; bei Prompt-Aenderung PROMPT_VERSION erhoehen.
+- Nur das neueste 10-K und neueste 10-Q je Firma werden analysiert (Schritt 7 vergleicht spaeter mit frueheren Berichten).
+- Unter Windows: `claude` muss im PATH und angemeldet sein. Falls `.cmd`-Wrapper Probleme mit leerem `--tools ""` machen, in `ClaudeCLI.command` anpassen (nicht auf Linux getestet).

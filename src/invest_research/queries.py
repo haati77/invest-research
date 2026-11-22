@@ -5,7 +5,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Company, Event, Filing, Metric, Price
+from .models import Analysis, Company, Event, Filing, Metric, Price
 from .valuation import market_cap, p_fcf_ratio, pe_ratio, price_change, ps_ratio
 
 
@@ -97,3 +97,24 @@ def mark_events_seen(session: Session, ids: list[int]) -> None:
     for e in session.scalars(select(Event).where(Event.id.in_(ids))):
         e.seen = True
     session.commit()
+
+
+SECTION_ORDER = {"business": 0, "risks": 1, "mdna": 2}
+
+
+def latest_analyses(session: Session, ticker: str) -> list[dict]:
+    """Aktuelle Analysen (neueste Prompt-Version je Filing/Abschnitt), neueste Filings zuerst."""
+    q = (select(Analysis, Filing.form_type, Filing.filed_at, Filing.url)
+         .join(Filing, Filing.id == Analysis.filing_id).join(Company, Company.id == Filing.company_id)
+         .where(Company.ticker == ticker.upper())
+         .order_by(Filing.filed_at.desc(), Analysis.prompt_version.desc()))
+    seen, out = set(), []
+    for a, form, filed, url in session.execute(q):
+        key = (a.filing_id, a.section_key)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"form_type": form, "filed_at": filed, "url": url, "section": a.section_key,
+                    "model": a.model, "created_at": a.created_at, "content": a.content})
+    out.sort(key=lambda r: (-r["filed_at"].toordinal(), SECTION_ORDER.get(r["section"], 9)))
+    return out

@@ -52,6 +52,36 @@ class Filing(Base):
     company: Mapped[Company] = relationship(back_populates="filings")
 
 
+class FilingSection(Base):
+    """Extrahierter Textabschnitt eines Filings (business | risks | mdna)."""
+
+    __tablename__ = "filing_sections"
+    __table_args__ = (UniqueConstraint("filing_id", "key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filing_id: Mapped[int] = mapped_column(ForeignKey("filings.id"), index=True)
+    key: Mapped[str] = mapped_column(String(20))
+    text: Mapped[str] = mapped_column(Text)
+
+
+class Analysis(Base):
+    """KI-Auswertung eines Abschnitts (zitatgeprueft). Pro Filing/Abschnitt/Prompt-Version einmal."""
+
+    __tablename__ = "analyses"
+    __table_args__ = (UniqueConstraint("filing_id", "section_key", "prompt_version"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filing_id: Mapped[int] = mapped_column(ForeignKey("filings.id"), index=True)
+    section_key: Mapped[str] = mapped_column(String(20))
+    prompt_version: Mapped[str] = mapped_column(String(20))
+    model: Mapped[str] = mapped_column(String(60))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    content: Mapped[dict] = mapped_column(JSON)
+    input_tokens: Mapped[int | None] = mapped_column()
+    output_tokens: Mapped[int | None] = mapped_column()
+    cost_usd: Mapped[float | None] = mapped_column(Float)
+
+
 class Metric(Base):
     """Eine Kennzahl pro Unternehmen und Periode (Rohwert aus XBRL oder berechnet)."""
 

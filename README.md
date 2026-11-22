@@ -18,7 +18,9 @@ Copy-Item .env.example .env   # SEC_USER_AGENT eintragen: "Name email@example.co
 python -m invest_research update      # Filings + Kennzahlen + Kurse laden und berechnen
 python -m invest_research dashboard   # Dashboard im Browser oeffnen
 python -m invest_research compare     # Peer-Vergleich im Terminal
+python -m invest_research analyze     # KI-Analyse neuester Berichte (braucht angemeldetes Claude Code)
+python -m invest_research show MSFT   # Analyse im Terminal lesen
 pytest                                # Tests
 ```
 
-Die Watchlist steht in `config/watchlist.yaml`. Weitere Befehle: `init`, `ingest`, `compute`, `prices`, `status`.
+Die Watchlist steht in `config/watchlist.yaml`. Die KI-Analyse nutzt `claude -p` (Abo) und ist auf 12 Aufrufe je Lauf begrenzt; erneut ausfuehren macht weiter. Weitere Befehle: `init`, `ingest`, `compute`, `prices`, `status`.

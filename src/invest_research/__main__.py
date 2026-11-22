@@ -1,4 +1,4 @@
-"""CLI:  python -m invest_research <init|ingest|compute|prices|update|compare|dashboard|status>"""
+"""CLI:  python -m invest_research <init|ingest|compute|prices|update|analyze|show|compare|dashboard|status>"""
 from __future__ import annotations
 
 import argparse
@@ -8,11 +8,13 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .analysis import analyze_watchlist
 from .compute import compute_watchlist
 from .config import load_settings, load_watchlist
 from .db import get_engine, init_db, sync_watchlist
 from .edgar import EdgarClient
 from .ingest import ingest_watchlist
+from .llm import ClaudeCLI, LLMError
 from .prices import YahooProvider, update_prices
 from .engine import RATIOS
 from .models import Company, Filing, Metric
@@ -44,6 +46,26 @@ def print_comparison(session: Session, basis: str, sector: str | None) -> None:
         print()
 
 
+def print_analysis(session: Session, ticker: str) -> None:
+    from .queries import latest_analyses
+    rows = latest_analyses(session, ticker)
+    if not rows:
+        print(f"Keine Analyse fuer {ticker.upper()}. Erst: python -m invest_research analyze --ticker {ticker.upper()}")
+        return
+    for r in rows:
+        c = r["content"]
+        print(f"\n=== {ticker.upper()} {r['form_type']} ({r['filed_at']}) - {r['section']} "
+              f"[{c['n_verified']}/{c['n_items']} Zitate verifiziert] ===")
+        print(f"Zusammenfassung (nicht zitatgeprueft): {c['summary']}")
+        if c.get("tone"):
+            print(f"Ton: {c['tone']}" + ("" if c["tone_verified"] else " (Zitat nicht verifiziert)"))
+        for it in sorted(c["items"], key=lambda i: -i["importance"]):
+            mark = "OK " if it["verified"] else "?? "
+            print(f"  {mark}[{it['kind']}] {it['title']}: {it['statement']}")
+            if it["verified"]:
+                print(f"      Zitat: \"{it['quote']}\"")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="invest_research")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -54,6 +76,13 @@ def main() -> None:
     sub.add_parser("prices", help="Kursdaten laden (inkrementell)")
     p_upd = sub.add_parser("update", help="Alles aktualisieren: ingest + compute + prices")
     p_upd.add_argument("--years", type=int, default=6)
+    p_an = sub.add_parser("analyze", help="KI-Analyse neuester 10-K/10-Q (per 'claude -p', zitatgeprueft)")
+    p_an.add_argument("--ticker", help="nur diesen Ticker")
+    p_an.add_argument("--max-calls", type=int, default=12, help="max. KI-Aufrufe je Lauf (Standard 12)")
+    p_an.add_argument("--model", default="haiku", help="Modell fuer claude -p (Standard haiku; sonnet = gruendlicher, mehr Abo-Verbrauch)")
+    p_an.add_argument("--force", action="store_true", help="vorhandene Analysen neu erstellen")
+    p_show = sub.add_parser("show", help="KI-Analyse eines Unternehmens anzeigen")
+    p_show.add_argument("ticker")
     sub.add_parser("dashboard", help="Dashboard im Browser starten")
     sub.add_parser("compute", help="Abgeleitete Kennzahlen berechnen (Q4, TTM, Quoten)")
     p_cmp = sub.add_parser("compare", help="Peer-Vergleich anzeigen")
@@ -90,6 +119,20 @@ def main() -> None:
             print("Kennzahlen berechnet.")
             for ticker, msg in update_prices(session, YahooProvider()).items():
                 print(f"{ticker:6} {msg}")
+        elif args.cmd == "analyze":
+            try:
+                llm = ClaudeCLI(model=args.model)
+            except LLMError as exc:
+                raise SystemExit(str(exc))
+            reports, pending = analyze_watchlist(session, llm, EdgarClient(settings.sec_user_agent),
+                                                 max_calls=args.max_calls, only_ticker=args.ticker, force=args.force)
+            for r in reports:
+                detail = f"{r.n_verified}/{r.n_items} Zitate verifiziert" if r.status in ("ok", "uebersprungen") else ""
+                print(f"{r.ticker:6} {r.form_type:5} {r.section:9} {r.status} {detail}")
+            if pending:
+                print(f"\n{pending} Abschnitte noch offen: 'analyze' erneut ausfuehren (Fortschritt ist gespeichert).")
+        elif args.cmd == "show":
+            print_analysis(session, args.ticker)
         elif args.cmd == "dashboard":
             import subprocess
             import sys

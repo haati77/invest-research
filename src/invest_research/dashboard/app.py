@@ -248,6 +248,48 @@ def page_company(session: Session) -> None:
                                     "period_end": "Berichtsperiode", "url": "Link"}),
                  width="stretch", hide_index=True,
                  column_config={"Link": st.column_config.LinkColumn("Link", display_text="oeffnen")})
+    render_analysis(session, ticker)
+
+
+SECTION_TITLES = {"business": "Geschaeftsmodell", "risks": "Risiken", "mdna": "Management-Analyse (MD&A)"}
+KIND_LABELS = {"business": "Geschaeft", "segment": "Segment", "strategy": "Strategie", "risk": "Risiko",
+               "driver": "Treiber", "outlook": "Ausblick", "other": "Sonstiges"}
+
+
+def render_analysis(session: Session, ticker: str) -> None:
+    st.subheader("KI-Analyse der Berichte")
+    rows = queries.latest_analyses(session, ticker)
+    if not rows:
+        st.info(f"Noch keine Analyse. Im Terminal: `python -m invest_research analyze --ticker {ticker}`")
+        return
+    st.caption("Aussagen werden nur angezeigt, wenn ihr Zitat woertlich im Originaltext steht. "
+               "Die Zusammenfassung ist eine KI-Formulierung und nicht zitatgeprueft. Keine Anlageberatung.")
+    filings: dict[tuple, list[dict]] = {}
+    for r in rows:
+        filings.setdefault((r["form_type"], r["filed_at"], r["url"]), []).append(r)
+    for i, ((form, filed, url), secs) in enumerate(filings.items()):
+        with st.expander(f"{form} vom {filed}", expanded=(i == 0)):
+            if url:
+                st.markdown(f"[Originaldokument]({url})")
+            tabs = st.tabs([SECTION_TITLES.get(r["section"], r["section"]) for r in secs])
+            for tab, r in zip(tabs, secs):
+                c = r["content"]
+                with tab:
+                    st.markdown(f"**KI-Zusammenfassung:** {c['summary']}")
+                    if c.get("tone"):
+                        suffix = "" if c.get("tone_verified") else " (Zitat nicht verifiziert)"
+                        st.markdown(f"**Ton des Managements:** {c['tone']}{suffix}")
+                    for it in sorted((x for x in c["items"] if x["verified"]), key=lambda x: -x["importance"]):
+                        st.markdown(f"**{it['title']}** ({KIND_LABELS.get(it['kind'], it['kind'])})  \n"
+                                    f"{it['statement']}")
+                        st.caption(f"Originalzitat: \u201e{it['quote']}\u201c")
+                    hidden = c["n_items"] - c["n_verified"]
+                    note = f"{c['n_verified']} von {c['n_items']} Aussagen mit verifiziertem Zitat"
+                    if hidden:
+                        note += f"; {hidden} ohne verifiziertes Zitat ausgeblendet"
+                    if c.get("truncated"):
+                        note += "; Abschnitt wurde fuer die Analyse gekuerzt"
+                    st.caption(note + f". Modell: {r['model']}.")
 
 
 # ---------------------------------------------------------------- Alerts
