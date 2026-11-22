@@ -1,0 +1,13 @@
+# Start-Watchlist: 10 US-Unternehmen in 3 Branchen (fuer sinnvolle Peer-Vergleiche).
+# Aendere die Liste frei; Ticker muessen an der SEC registriert sein.
+companies:
+  - {ticker: MSFT, sector: Software}
+  - {ticker: ADBE, sector: Software}
+  - {ticker: CRM,  sector: Software}
+  - {ticker: ORCL, sector: Software}
+  - {ticker: NVDA, sector: Halbleiter}
+  - {ticker: AMD,  sector: Halbleiter}
+  - {ticker: AVGO, sector: Halbleiter}
+  - {ticker: KO,   sector: Konsumgueter}
+  - {ticker: PEP,  sector: Konsumgueter}
+  - {ticker: PG,   sector: Konsumgueter}
