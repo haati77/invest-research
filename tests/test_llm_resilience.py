@@ -65,6 +65,29 @@ def test_describe_failure_prefers_result_text_from_json():
     assert describe_failure(proc("")) == "(keine Ausgabe)"
 
 
+def test_describe_failure_drops_misleading_success_subtype_and_keeps_auth_text():
+    real = json.dumps({"is_error": True, "subtype": "success",
+                       "result": "Failed to authenticate: OAuth session expired and could not be refreshed"})
+    assert describe_failure(proc(real)) == "Failed to authenticate: OAuth session expired and could not be refreshed"
+
+
+def test_diagnose_gives_login_hint_for_expired_session(monkeypatch):
+    monkeypatch.setattr("invest_research.llm.shutil.which", lambda _: "/x/claude")
+    monkeypatch.setattr("invest_research.llm.subprocess.run",
+                        lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout="2.1.330 (Claude Code)", stderr=""))
+
+    class Expired:
+        def __init__(self, *a, **k):
+            pass
+
+        def complete(self, system, prompt):
+            raise LLMUnavailable("claude -p Fehlercode 1: Failed to authenticate: OAuth session expired")
+
+    monkeypatch.setattr("invest_research.llm.ClaudeCLI", Expired)
+    text = " ".join(t for _, t in diagnose())
+    assert "/login" in text and "Anmeldung ist abgelaufen" in text
+
+
 def test_nonzero_exit_with_json_error_names_the_real_cause():
     cli = ClaudeCLI("haiku", executable="claude", runner=runner_returning(proc(WINDOWS_STYLE_ERROR)))
     with pytest.raises(LLMUnavailable, match="Not logged in"):

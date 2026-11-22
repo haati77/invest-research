@@ -79,7 +79,8 @@ def describe_failure(proc: "subprocess.CompletedProcess[str]", limit: int = 400)
     try:
         data = json.loads(out)
         if isinstance(data, dict):
-            parts = [str(data.get(k)) for k in ("result", "api_error_status", "subtype") if data.get(k)]
+            parts = [str(data.get(k)) for k in ("result", "api_error_status", "subtype")
+                     if data.get(k) and not (k == "subtype" and data.get(k) == "success")]  # 'success' verwirrt
             if parts:
                 return " | ".join(parts)[:limit]
     except json.JSONDecodeError:
@@ -157,6 +158,10 @@ def diagnose(model: str = "haiku") -> list[tuple[bool, str]]:
                           f"{resp.input_tokens or 0}+{resp.output_tokens or 0} Token"))
     except LLMError as exc:
         lines.append((False, f"Testaufruf fehlgeschlagen: {exc}"))
-        lines.append((False, "Moegliche Ursachen: nicht angemeldet (im Terminal 'claude' starten und /login), "
-                             "Nutzungslimit erreicht, oder Modellname unbekannt (--model)."))
+        if any(w in str(exc).lower() for w in ("authenticate", "oauth", "not logged in", "login", "401")):
+            lines.append((False, "Die Anmeldung ist abgelaufen oder fehlt: im Terminal 'claude' starten, dort "
+                                 "'/login' eingeben, dann 'check-claude' erneut ausfuehren."))
+        else:
+            lines.append((False, "Moegliche Ursachen: nicht angemeldet (im Terminal 'claude' starten und /login), "
+                                 "Nutzungslimit erreicht, oder Modellname unbekannt (--model)."))
     return lines
